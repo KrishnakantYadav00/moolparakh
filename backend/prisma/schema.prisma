@@ -1,0 +1,424 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─────────────────────────────────────────────
+// ENUMS
+// ─────────────────────────────────────────────
+
+enum VendorStatus {
+  DRAFT
+  PENDING_VERIFICATION
+  VERIFIED
+  FLAGGED
+  REJECTED
+}
+
+enum MsmeCategory {
+  MICRO
+  SMALL
+  MEDIUM
+}
+
+enum DocumentType {
+  PAN_CARD
+  GST_CERTIFICATE
+  UDYAM_CERTIFICATE
+  BANK_STATEMENT
+  CANCELLED_CHEQUE
+  ISO_CERTIFICATE
+  INSURANCE_DOCUMENT
+  OTHER
+}
+
+enum DocumentStatus {
+  UPLOADED
+  PROCESSING_OCR
+  PARSED
+  FAILED
+}
+
+enum VerificationType {
+  PAN
+  GSTIN
+  UDYAM
+  CIN
+  BANK_ACCOUNT
+}
+
+enum VerificationStatus {
+  PENDING
+  SUCCESS
+  FAILED
+  MANUAL_REVIEW
+}
+
+enum RiskLevel {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum AlertSeverity {
+  INFO
+  WARNING
+  CRITICAL
+}
+
+enum AlertStatus {
+  UNREAD
+  READ
+  SNOOZED
+  DISMISSED
+}
+
+enum RfqStatus {
+  DRAFT
+  OPEN
+  COMPLETED
+  CANCELLED
+}
+
+enum RelationshipType {
+  SHARED_DIRECTOR
+  SHARED_BANK_ACCOUNT
+  SHARED_ADDRESS
+}
+
+enum DisruptionCategory {
+  PORT_DISRUPTION
+  TARIFF
+  NATURAL_DISASTER
+  GEOPOLITICAL
+  LOGISTICS
+  REGULATORY
+}
+
+enum NotificationKind {
+  HIGH
+  CRITICAL
+  COMPLIANCE
+  RFQ
+  TRUST
+}
+
+enum VendorEventKind {
+  VERIFICATION
+  COMPLIANCE
+  RISK
+  TRUST
+  RFQ
+  DOCUMENT
+}
+
+// ─────────────────────────────────────────────
+// CORE VENDOR
+// ─────────────────────────────────────────────
+
+model Vendor {
+  id             String       @id @default(uuid())
+  legalName      String       @map("legal_name")
+  tradeName      String?      @map("trade_name")
+  email          String       @unique
+  phone          String
+
+  pan            String?      @unique
+  gstin          String?      @unique
+  cin            String?      @unique
+  udyamNumber    String?      @unique @map("udyam_number")
+
+  msmeCategory   MsmeCategory @default(MICRO) @map("msme_category")
+  city           String       @default("")
+  state          String       @default("")
+
+  /// Array of procurement categories e.g. ["Electrical", "Mechanical"]
+  categories     String[]
+
+  contactName    String       @default("") @map("contact_name")
+  contactRole    String       @default("") @map("contact_role")
+
+  status         VendorStatus @default(DRAFT)
+  address        Json?
+  buyerFlagNote  String?      @map("buyer_flag_note") @db.Text
+
+  onboardedAt    DateTime     @default(now()) @map("onboarded_at")
+  createdAt      DateTime     @default(now()) @map("created_at")
+  updatedAt      DateTime     @updatedAt @map("updated_at")
+
+  // Relations
+  documents         Document[]
+  verifications     VerificationRecord[]
+  trustScore        TrustScore?
+  trustHistory      TrustHistoryPoint[]
+  alerts            Alert[]
+  events            VendorEvent[]
+  bids              Bid[]
+  notifications     Notification[]
+  disruptionTargets DisruptionTarget[]
+
+  /// Relationships where this vendor is "side A"
+  relationshipsA SupplierRelationship[] @relation("VendorA")
+  /// Relationships where this vendor is "side B"
+  relationshipsB SupplierRelationship[] @relation("VendorB")
+
+  @@map("vendors")
+}
+
+// ─────────────────────────────────────────────
+// DOCUMENTS
+// ─────────────────────────────────────────────
+
+model Document {
+  id       String @id @default(uuid())
+  vendorId String @map("vendor_id")
+  vendor   Vendor @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+
+  type     DocumentType
+  /// R2 object key (not a full URL — use r2.getPublicUrl(key) to resolve)
+  fileKey  String       @map("file_key")
+  mimeType String       @map("mime_type")
+  fileSize Int          @map("file_size")
+  status   DocumentStatus @default(UPLOADED)
+
+  // Certificate-specific fields (populated after OCR)
+  certificateNumber String?   @map("certificate_number")
+  issuingAuthority  String?   @map("issuing_authority")
+  issueDate         DateTime? @map("issue_date")
+  expirationDate    DateTime? @map("expiration_date")
+  confidence        Float?    @default(0)
+
+  rawOcrText    String? @map("raw_ocr_text") @db.Text
+  extractedData Json?   @map("extracted_data")
+
+  uploadedAt DateTime @default(now()) @map("uploaded_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  @@index([vendorId])
+  @@map("documents")
+}
+
+// ─────────────────────────────────────────────
+// VERIFICATION
+// ─────────────────────────────────────────────
+
+model VerificationRecord {
+  id       String @id @default(uuid())
+  vendorId String @map("vendor_id")
+  vendor   Vendor @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+
+  type            VerificationType
+  status          VerificationStatus @default(PENDING)
+  source          String?
+  responsePayload Json?              @map("response_payload")
+  failureReason   String?            @map("failure_reason")
+
+  verifiedAt DateTime? @map("verified_at")
+  createdAt  DateTime  @default(now()) @map("created_at")
+
+  @@index([vendorId, type])
+  @@map("verification_records")
+}
+
+// ─────────────────────────────────────────────
+// TRUST SCORE
+// ─────────────────────────────────────────────
+
+model TrustScore {
+  id       String @id @default(uuid())
+  vendorId String @unique @map("vendor_id")
+  vendor   Vendor @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+
+  overallScore              Int  @map("overall_score")
+  verificationCompleteness  Int  @map("verification_completeness") // /40
+  certificationFreshness    Int  @map("certification_freshness")   // /35
+  accountAgeActivity        Int  @map("account_age_activity")      // /15
+  manualBuyerFlag           Int  @map("manual_buyer_flag")         // /10
+
+  riskLevel      RiskLevel @default(LOW) @map("risk_level")
+  scoringFactors Json?     @map("scoring_factors")
+
+  lastCalculatedAt DateTime @default(now()) @map("last_calculated_at")
+
+  @@map("trust_scores")
+}
+
+/// One row per data point in the trust sparkline (30-day window)
+model TrustHistoryPoint {
+  id       String @id @default(uuid())
+  vendorId String @map("vendor_id")
+  vendor   Vendor @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+
+  score     Int
+  recordedAt DateTime @default(now()) @map("recorded_at")
+
+  @@index([vendorId, recordedAt])
+  @@map("trust_history_points")
+}
+
+// ─────────────────────────────────────────────
+// ALERTS
+// ─────────────────────────────────────────────
+
+model Alert {
+  id       String @id @default(uuid())
+  vendorId String @map("vendor_id")
+  vendor   Vendor @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+
+  title       String
+  description String        @db.Text
+  severity    AlertSeverity @default(WARNING)
+  status      AlertStatus   @default(UNREAD)
+  isResolved  Boolean       @default(false) @map("is_resolved")
+  resolvedAt  DateTime?     @map("resolved_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([vendorId])
+  @@map("alerts")
+}
+
+// ─────────────────────────────────────────────
+// VENDOR EVENT LOG (append-only audit trail)
+// ─────────────────────────────────────────────
+
+model VendorEvent {
+  id       String @id @default(uuid())
+  vendorId String @map("vendor_id")
+  vendor   Vendor @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+
+  kind   VendorEventKind
+  title  String
+  detail String          @db.Text
+  at     DateTime        @default(now())
+
+  @@index([vendorId, at])
+  @@map("vendor_events")
+}
+
+// ─────────────────────────────────────────────
+// SUPPLIER RELATIONSHIPS (graph edges, flat)
+// ─────────────────────────────────────────────
+
+model SupplierRelationship {
+  id String @id @default(uuid())
+
+  vendorAId String @map("vendor_a_id")
+  vendorA   Vendor @relation("VendorA", fields: [vendorAId], references: [id], onDelete: Cascade)
+
+  vendorBId String @map("vendor_b_id")
+  vendorB   Vendor @relation("VendorB", fields: [vendorBId], references: [id], onDelete: Cascade)
+
+  type  RelationshipType
+  value String           // e.g. director name, bank account last-4, address string
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([vendorAId])
+  @@index([vendorBId])
+  @@map("supplier_relationships")
+}
+
+// ─────────────────────────────────────────────
+// RFQ & BIDS
+// ─────────────────────────────────────────────
+
+model Rfq {
+  id        String    @id @default(uuid())
+  reference String    @unique // e.g. "RFQ-2026-001"
+  title     String
+  status    RfqStatus @default(DRAFT)
+
+  /// Structured spec stored as JSON (matches RfqSpec frontend type)
+  spec     Json
+  freeText String? @map("free_text") @db.Text
+
+  suppliersNotified Int      @default(0) @map("suppliers_notified")
+  closesAt          DateTime @map("closes_at")
+  awardedVendorId   String?  @map("awarded_vendor_id")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  bids Bid[]
+
+  @@map("rfqs")
+}
+
+model Bid {
+  id    String @id @default(uuid())
+  rfqId String @map("rfq_id")
+  rfq   Rfq    @relation(fields: [rfqId], references: [id], onDelete: Cascade)
+
+  vendorId   String @map("vendor_id")
+  vendor     Vendor @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  vendorName String @map("vendor_name") // denormalised for fast read
+
+  pricePerUnit      Float    @map("price_per_unit")
+  deliveryDays      Int      @map("delivery_days")
+  trustScoreAtBid   Int      @map("trust_score_at_bid")
+  notes             String?  @db.Text
+  submittedAt       DateTime @default(now()) @map("submitted_at")
+
+  @@unique([rfqId, vendorId])
+  @@index([rfqId])
+  @@map("bids")
+}
+
+// ─────────────────────────────────────────────
+// SUPPLIER INTELLIGENCE (disruption events)
+// ─────────────────────────────────────────────
+
+model DisruptionEvent {
+  id       String             @id @default(uuid())
+  severity RiskLevel
+  title    String
+  category DisruptionCategory
+  region   String
+
+  summary           String   @db.Text
+  detectedAt        DateTime @default(now()) @map("detected_at")
+  sourceUrl         String?  @map("source_url")
+
+  affectedVendors DisruptionTarget[]
+
+  @@index([detectedAt])
+  @@map("disruption_events")
+}
+
+/// Join table: which vendors are affected by a disruption event
+model DisruptionTarget {
+  eventId  String          @map("event_id")
+  event    DisruptionEvent @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  vendorId String          @map("vendor_id")
+  vendor   Vendor          @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+
+  @@id([eventId, vendorId])
+  @@map("disruption_targets")
+}
+
+// ─────────────────────────────────────────────
+// NOTIFICATIONS
+// ─────────────────────────────────────────────
+
+model Notification {
+  id       String           @id @default(uuid())
+  vendorId String?          @map("vendor_id")
+  vendor   Vendor?          @relation(fields: [vendorId], references: [id], onDelete: SetNull)
+
+  kind       NotificationKind
+  title      String
+  vendorName String           @map("vendor_name")
+  detail     String           @db.Text
+  read       Boolean          @default(false)
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([read, createdAt])
+  @@map("notifications")
+}
