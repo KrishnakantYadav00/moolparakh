@@ -10,6 +10,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/providers/notifications_provider.dart';
 import '../../core/theme/app_theme.dart';
+import 'offline_banner.dart';
 
 class MainShell extends ConsumerWidget {
   final Widget child;
@@ -36,7 +37,7 @@ class MainShell extends ConsumerWidget {
     final currentIndex = _currentIndex(context);
 
     return Scaffold(
-      body: child,
+      body: OfflineBanner(child: child),
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: currentIndex,
         onTap: (i) => context.go(_tabs[i].path),

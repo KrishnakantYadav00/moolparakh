@@ -17,6 +17,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
+import 'package:shimmer/shimmer.dart';
 import '../../../core/models/vendor.dart';
 import '../../../core/providers/vendors_provider.dart';
 import '../../../core/providers/rfq_provider.dart';
@@ -53,11 +54,12 @@ class DashboardScreen extends ConsumerWidget {
         ],
       ),
       body: vendorAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
+        loading: () => const _DashboardShimmer(),
         error: (e, _) => _ErrorView(message: e.toString()),
         data: (vendor) => RefreshIndicator(
           onRefresh: () async {
             ref.read(vendorDetailProvider(vendorId).notifier).refresh();
+            ref.read(rfqListProvider.notifier).refresh();
           },
           child: ListView(
             padding: const EdgeInsets.all(16),
@@ -85,6 +87,67 @@ class DashboardScreen extends ConsumerWidget {
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
+// Shimmer Loading States
+// ──────────────────────────────────────────────────────────────────────────────
+
+class _DashboardShimmer extends StatelessWidget {
+  const _DashboardShimmer();
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView(
+      padding: const EdgeInsets.all(16),
+      children: [
+        Shimmer.fromColors(
+          baseColor: AppColors.shimmer,
+          highlightColor: AppColors.shimmerHighlight,
+          child: Card(
+            child: Container(
+              height: 140,
+              width: double.infinity,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: 16),
+        Shimmer.fromColors(
+          baseColor: AppColors.shimmer,
+          highlightColor: AppColors.shimmerHighlight,
+          child: Card(
+            child: Container(
+              height: 120,
+              width: double.infinity,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: 16),
+        Shimmer.fromColors(
+          baseColor: AppColors.shimmer,
+          highlightColor: AppColors.shimmerHighlight,
+          child: Card(
+            child: Container(
+              height: 90,
+              width: double.infinity,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
 // Trust summary card
 // ──────────────────────────────────────────────────────────────────────────────
 
@@ -98,37 +161,48 @@ class _TrustSummaryCard extends StatelessWidget {
     final score = ts?.overallScore ?? 0;
 
     return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Row(
-          children: [
-            TrustScoreBadge(score: score, size: 80, strokeWidth: 7),
-            const SizedBox(width: 20),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    vendor.displayName,
-                    style: Theme.of(context).textTheme.titleMedium,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(height: 4),
-                  StatusChip.vendorStatus(vendor.status.name.toUpperCase()),
-                  const SizedBox(height: 8),
-                  if (ts != null) ...[
-                    _ScoreRow(
-                        'Verification', ts.verificationCompleteness, 40),
-                    _ScoreRow(
-                        'Cert Freshness', ts.certificationFreshness, 35),
-                    _ScoreRow(
-                        'Account Age', ts.accountAgeActivity, 15),
-                  ],
-                ],
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: () => context.push('/trust/${vendor.id}'),
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Row(
+            children: [
+              Hero(
+                tag: 'trust-badge-${vendor.id}',
+                child: Material(
+                  color: Colors.transparent,
+                  child: TrustScoreBadge(score: score, size: 80, strokeWidth: 7),
+                ),
               ),
-            ),
-          ],
+              const SizedBox(width: 20),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      vendor.displayName,
+                      style: Theme.of(context).textTheme.titleMedium,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 4),
+                    StatusChip.vendorStatus(vendor.status.name.toUpperCase()),
+                    const SizedBox(height: 8),
+                    if (ts != null) ...[
+                      _ScoreRow(
+                          'Verification', ts.verificationCompleteness, 40),
+                      _ScoreRow(
+                          'Cert Freshness', ts.certificationFreshness, 35),
+                      _ScoreRow(
+                          'Account Age', ts.accountAgeActivity, 15),
+                    ],
+                  ],
+                ),
+              ),
+              const Icon(Icons.chevron_right, color: AppColors.textSecondary),
+            ],
+          ),
         ),
       ),
     );
@@ -183,29 +257,36 @@ class _VerificationCard extends StatelessWidget {
     };
 
     return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                const Icon(Icons.fact_check_outlined,
-                    size: 18, color: AppColors.primary),
-                const SizedBox(width: 8),
-                Text('Verification Checks',
-                    style: Theme.of(context).textTheme.titleSmall),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Wrap(
-              spacing: 12,
-              runSpacing: 8,
-              children: checks.entries.map((e) {
-                return _VerifItem(label: e.key, status: e.value);
-              }).toList(),
-            ),
-          ],
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: () => context.go('/home/kyc'),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  const Icon(Icons.fact_check_outlined,
+                      size: 18, color: AppColors.primary),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text('Verification Checks',
+                        style: Theme.of(context).textTheme.titleSmall),
+                  ),
+                  const Icon(Icons.chevron_right, size: 16, color: AppColors.textSecondary),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Wrap(
+                spacing: 12,
+                runSpacing: 8,
+                children: checks.entries.map((e) {
+                  return _VerifItem(label: e.key, status: e.value);
+                }).toList(),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -272,11 +353,20 @@ class _ComplianceAlertCard extends StatelessWidget {
               const Icon(Icons.check_circle,
                   color: AppColors.verified, size: 20),
               const SizedBox(width: 8),
-              Text('All certificates up to date',
-                  style: Theme.of(context)
-                      .textTheme
-                      .bodyMedium
-                      ?.copyWith(color: AppColors.verified)),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('All certificates up to date',
+                        style: Theme.of(context)
+                            .textTheme
+                            .bodyMedium
+                            ?.copyWith(color: AppColors.verified, fontWeight: FontWeight.w600)),
+                    Text('GSTIN and Udyam are valid',
+                        style: Theme.of(context).textTheme.bodySmall),
+                  ],
+                ),
+              ),
             ],
           ),
         ),
@@ -284,70 +374,77 @@ class _ComplianceAlertCard extends StatelessWidget {
     }
 
     return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(
-                  expired.isNotEmpty
-                      ? Icons.error_outline
-                      : Icons.warning_amber_outlined,
-                  color: expired.isNotEmpty
-                      ? AppColors.failed
-                      : AppColors.pending,
-                  size: 20,
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  expired.isNotEmpty
-                      ? '${expired.length} Expired'
-                      : '${expiring.length} Expiring Soon',
-                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                        color: expired.isNotEmpty
-                            ? AppColors.failed
-                            : AppColors.pending,
-                      ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            ...[ ...expired, ...expiring].take(3).map(
-              (d) {
-                final exp = d.expirationDate;
-                final days = exp != null
-                    ? exp.difference(DateTime.now()).inDays
-                    : null;
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: 4),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: Text(d.type,
-                            style: const TextStyle(fontSize: 13)),
-                      ),
-                      Text(
-                        days == null
-                            ? '—'
-                            : days < 0
-                                ? 'Expired ${days.abs()}d ago'
-                                : 'In ${days}d',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: d.isExpired
-                              ? AppColors.failed
-                              : AppColors.pending,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ],
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: () => context.go('/home/kyc'),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(
+                    expired.isNotEmpty
+                        ? Icons.error_outline
+                        : Icons.warning_amber_outlined,
+                    color: expired.isNotEmpty
+                        ? AppColors.failed
+                        : AppColors.pending,
+                    size: 20,
                   ),
-                );
-              },
-            ),
-          ],
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      expired.isNotEmpty
+                          ? '${expired.length} Expired Certificate${expired.length > 1 ? 's' : ''}'
+                          : '${expiring.length} Certificate${expiring.length > 1 ? 's' : ''} Expiring Soon',
+                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                            color: expired.isNotEmpty
+                                ? AppColors.failed
+                                : AppColors.pending,
+                          ),
+                    ),
+                  ),
+                  const Icon(Icons.chevron_right, size: 16, color: AppColors.textSecondary),
+                ],
+              ),
+              const SizedBox(height: 8),
+              ...[ ...expired, ...expiring].take(3).map(
+                (d) {
+                  final exp = d.expirationDate;
+                  final days = exp != null
+                      ? exp.difference(DateTime.now()).inDays
+                      : null;
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 4),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Text(d.type.replaceAll('_', ' '),
+                              style: const TextStyle(fontSize: 13)),
+                        ),
+                        Text(
+                          days == null
+                              ? '—'
+                              : days < 0
+                                  ? 'Expired ${days.abs()}d ago'
+                                  : 'In ${days}d',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: d.isExpired
+                                ? AppColors.failed
+                                : AppColors.pending,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -435,14 +532,23 @@ class _ActivityFeedCard extends StatelessWidget {
                 const Icon(Icons.timeline,
                     size: 18, color: AppColors.primary),
                 const SizedBox(width: 8),
-                Text('Recent Activity',
+                Text('Recent Activity (GDELT / Portal)',
                     style: Theme.of(context).textTheme.titleSmall),
               ],
             ),
             const SizedBox(height: 12),
             if (recent.isEmpty)
-              Text('No activity yet.',
-                  style: Theme.of(context).textTheme.bodySmall)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                child: Row(
+                  children: [
+                    Icon(Icons.info_outline, size: 16, color: AppColors.textSecondary),
+                    const SizedBox(width: 8),
+                    Text('No recent risk events or activity.',
+                        style: Theme.of(context).textTheme.bodySmall),
+                  ],
+                ),
+              )
             else
               ...recent.map((e) => _EventTile(event: e)),
           ],
@@ -476,21 +582,29 @@ class _EventTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.only(bottom: 12),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(_icon, size: 16, color: AppColors.primary),
-          const SizedBox(width: 8),
+          Container(
+            padding: const EdgeInsets.all(6),
+            decoration: BoxDecoration(
+              color: AppColors.primary.withAlpha(20),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(_icon, size: 14, color: AppColors.primary),
+          ),
+          const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(event.title,
                     style: const TextStyle(
-                        fontSize: 13, fontWeight: FontWeight.w500)),
+                        fontSize: 13, fontWeight: FontWeight.w600)),
+                const SizedBox(height: 2),
                 Text(event.detail,
-                    style: Theme.of(context).textTheme.bodySmall,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(height: 1.3),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis),
               ],
@@ -499,7 +613,7 @@ class _EventTile extends StatelessWidget {
           const SizedBox(width: 8),
           Text(
             DateFormat('dd MMM').format(event.at),
-            style: Theme.of(context).textTheme.bodySmall,
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w500),
           ),
         ],
       ),
@@ -522,13 +636,45 @@ class _SectionShimmer extends StatelessWidget {
         padding: const EdgeInsets.all(16),
         child: Row(
           children: [
-            const SizedBox(
-              height: 16,
-              width: 16,
-              child: CircularProgressIndicator(strokeWidth: 2),
+            Shimmer.fromColors(
+              baseColor: AppColors.shimmer,
+              highlightColor: AppColors.shimmerHighlight,
+              child: Container(
+                height: 44,
+                width: 44,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
             ),
-            const SizedBox(width: 12),
-            Text(label, style: Theme.of(context).textTheme.bodySmall),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Shimmer.fromColors(
+                    baseColor: AppColors.shimmer,
+                    highlightColor: AppColors.shimmerHighlight,
+                    child: Container(
+                      height: 14,
+                      width: 100,
+                      color: Colors.white,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Shimmer.fromColors(
+                    baseColor: AppColors.shimmer,
+                    highlightColor: AppColors.shimmerHighlight,
+                    child: Container(
+                      height: 12,
+                      width: double.infinity,
+                      color: Colors.white,
+                    ),
+                  ),
+                ],
+              ),
+            )
           ],
         ),
       ),

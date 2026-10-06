@@ -24,6 +24,8 @@ import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:pretty_dio_logger/pretty_dio_logger.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:dio_smart_retry/dio_smart_retry.dart';
+import 'package:connectivity_plus/connectivity_plus.dart';
 
 // ──────────────────────────────────────────────────────────────────────────────
 // Errors
@@ -37,6 +39,10 @@ class ApiException implements Exception {
 
   @override
   String toString() => 'ApiException($statusCode): $message';
+}
+
+class NetworkException extends ApiException {
+  const NetworkException(String message) : super(message);
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -59,29 +65,85 @@ class ApiClient {
 
     _dio = Dio(BaseOptions(
       baseUrl: _base,
-      connectTimeout: const Duration(seconds: 10),
+      connectTimeout: const Duration(seconds: 15),
       receiveTimeout: const Duration(seconds: 30),
+      sendTimeout: const Duration(seconds: 30),
       headers: {
         'Content-Type': 'application/json',
         'Accept': 'application/json',
       },
     ));
 
+    // Retry interceptor for resilient network calls
+    _dio.interceptors.add(RetryInterceptor(
+      dio: _dio,
+      logPrint: print, // Specify log function
+      retries: 3, // Retry count
+      retryDelays: const [
+        Duration(seconds: 1),
+        Duration(seconds: 2),
+        Duration(seconds: 3),
+      ],
+      retryEvaluator: (error, attempt) {
+        if (error.type == DioExceptionType.connectionTimeout ||
+            error.type == DioExceptionType.receiveTimeout ||
+            error.type == DioExceptionType.sendTimeout ||
+            error.type == DioExceptionType.connectionError) {
+          return true;
+        }
+        if (error.response?.statusCode == 500 || error.response?.statusCode == 502 || error.response?.statusCode == 503) {
+          return true;
+        }
+        return false;
+      },
+    ));
+
     // Readable request/response logs in debug builds
     assert(() {
       _dio.interceptors.add(PrettyDioLogger(
-        requestHeader: false,
+        requestHeader: true,
         requestBody: true,
         responseBody: true,
         responseHeader: false,
+        error: true,
         compact: true,
       ));
       return true;
     }());
 
-    // Convert Dio errors into ApiException
+    // Convert Dio errors into ApiException or NetworkException
     _dio.interceptors.add(InterceptorsWrapper(
+      onRequest: (options, handler) async {
+        final connectivityResult = await Connectivity().checkConnectivity();
+        if (connectivityResult.contains(ConnectivityResult.none)) {
+          return handler.reject(
+            DioException(
+              requestOptions: options,
+              error: const NetworkException('No internet connection. Please check your network and try again.'),
+              type: DioExceptionType.connectionError,
+            ),
+          );
+        }
+        return handler.next(options);
+      },
       onError: (e, handler) {
+        if (e.error is NetworkException) {
+          handler.reject(e);
+          return;
+        }
+        if (e.type == DioExceptionType.connectionTimeout || 
+            e.type == DioExceptionType.receiveTimeout || 
+            e.type == DioExceptionType.connectionError) {
+           handler.reject(
+             DioException(
+                requestOptions: e.requestOptions,
+                error: const NetworkException('Network timeout or connection error. Please try again.'),
+                type: e.type,
+             )
+           );
+           return;
+        }
+        
         if (e.response != null) {
           final data = e.response!.data;
           final msg = (data is Map && data['error'] != null)

@@ -75,7 +75,13 @@ class _ScoreSummaryCard extends StatelessWidget {
                 style: Theme.of(context).textTheme.titleMedium,
                 textAlign: TextAlign.center),
             const SizedBox(height: 20),
-            TrustScoreBadge(score: score, size: 100, strokeWidth: 9),
+            Hero(
+              tag: 'trust-badge-${vendor.id}',
+              child: Material(
+                color: Colors.transparent,
+                child: TrustScoreBadge(score: score, size: 100, strokeWidth: 9),
+              ),
+            ),
             const SizedBox(height: 16),
             if (ts != null) ...[
               StatusChip.riskLevel(ts.riskLevel.name.toUpperCase()),

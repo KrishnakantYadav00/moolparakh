@@ -17,6 +17,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:path/path.dart' as p;
 import '../../../core/api/api_client.dart';
 import '../../../core/providers/vendors_provider.dart';
@@ -58,21 +59,59 @@ class _DocumentUploadScreenState
   String? _error;
   bool _done = false;
 
-  Future<void> _pickCamera() async {
-    final picked = await ImagePicker().pickImage(
-      source: ImageSource.camera,
-      imageQuality: 85,
+  Future<bool> _requestCameraPermission() async {
+    final status = await Permission.camera.request();
+    if (status.isPermanentlyDenied) {
+      _showPermissionDialog('Camera');
+      return false;
+    }
+    return status.isGranted;
+  }
+
+  void _showPermissionDialog(String type) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('$type Permission Required'),
+        content: Text('Please enable $type permission in app settings to upload documents.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              openAppSettings();
+            },
+            child: const Text('Open Settings'),
+          ),
+        ],
+      ),
     );
-    if (picked != null) setState(() => _file = File(picked.path));
+  }
+
+  Future<void> _pickCamera() async {
+    if (!await _requestCameraPermission()) return;
+    try {
+      final picked = await ImagePicker().pickImage(
+        source: ImageSource.camera,
+        imageQuality: 85,
+      );
+      if (picked != null) setState(() => _file = File(picked.path));
+    } catch (e) {
+      setState(() => _error = 'Failed to capture image: $e');
+    }
   }
 
   Future<void> _pickFile() async {
-    final result = await FilePicker.platform.pickFiles(
-      type: FileType.custom,
-      allowedExtensions: ['pdf', 'jpg', 'jpeg', 'png'],
-    );
-    if (result?.files.single.path != null) {
-      setState(() => _file = File(result!.files.single.path!));
+    try {
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['pdf', 'jpg', 'jpeg', 'png'],
+      );
+      if (result?.files.single.path != null) {
+        setState(() => _file = File(result!.files.single.path!));
+      }
+    } catch (e) {
+      setState(() => _error = 'Failed to pick file: $e');
     }
   }
 
@@ -181,6 +220,21 @@ class _DocumentUploadScreenState
               ? null
               : (v) => setState(() => _docType = v!),
         ),
+        
+        if (_docType == 'UDYAM_CERTIFICATE') ...[
+          const SizedBox(height: 8),
+          Text(
+            'Ensure Udyam Registration Number (URN) format UDYAM-XX-00-0000000 is clearly visible for automatic verification.',
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(color: AppColors.primary),
+          ),
+        ],
+        if (_docType == 'GST_CERTIFICATE') ...[
+          const SizedBox(height: 8),
+          Text(
+            'Ensure the 15-character GSTIN is visible. Both English and bilingual (Hindi/English) certificates are supported.',
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(color: AppColors.primary),
+          ),
+        ],
 
         const SizedBox(height: 24),
 

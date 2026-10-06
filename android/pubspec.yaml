@@ -65,6 +65,8 @@ dependencies:
   path: ^1.9.0
   path_provider: ^2.1.4
   connectivity_plus: ^6.1.1
+  shimmer: ^3.0.0
+  dio_smart_retry: ^6.0.0
 
 dev_dependencies:
   flutter_test:
