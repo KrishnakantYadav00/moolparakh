@@ -14,7 +14,9 @@ class OfflineBanner extends StatelessWidget {
         StreamBuilder<List<ConnectivityResult>>(
           stream: Connectivity().onConnectivityChanged,
           builder: (context, snapshot) {
-            final isOffline = snapshot.hasData && snapshot.data!.contains(ConnectivityResult.none);
+            final isOffline =
+                snapshot.hasData &&
+                snapshot.data!.contains(ConnectivityResult.none);
             if (!isOffline) return const SizedBox.shrink();
 
             return Container(
@@ -26,11 +28,19 @@ class OfflineBanner extends StatelessWidget {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(Icons.wifi_off_outlined, color: Colors.white, size: 16),
+                    Icon(
+                      Icons.wifi_off_outlined,
+                      color: Colors.white,
+                      size: 16,
+                    ),
                     SizedBox(width: 8),
                     Text(
                       'You are offline. Some features may be unavailable.',
-                      style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w500),
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                      ),
                     ),
                   ],
                 ),

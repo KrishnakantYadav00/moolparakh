@@ -17,10 +17,30 @@ class MainShell extends ConsumerWidget {
   const MainShell({super.key, required this.child});
 
   static const _tabs = [
-    (icon: Icons.dashboard_outlined, activeIcon: Icons.dashboard, label: 'Dashboard', path: '/home/dashboard'),
-    (icon: Icons.verified_user_outlined, activeIcon: Icons.verified_user, label: 'My KYC', path: '/home/kyc'),
-    (icon: Icons.request_quote_outlined, activeIcon: Icons.request_quote, label: 'RFQs', path: '/home/rfq'),
-    (icon: Icons.notifications_outlined, activeIcon: Icons.notifications, label: 'Alerts', path: '/home/notifications'),
+    (
+      icon: Icons.dashboard_outlined,
+      activeIcon: Icons.dashboard,
+      label: 'Dashboard',
+      path: '/home/dashboard',
+    ),
+    (
+      icon: Icons.verified_user_outlined,
+      activeIcon: Icons.verified_user,
+      label: 'My KYC',
+      path: '/home/kyc',
+    ),
+    (
+      icon: Icons.request_quote_outlined,
+      activeIcon: Icons.request_quote,
+      label: 'RFQs',
+      path: '/home/rfq',
+    ),
+    (
+      icon: Icons.notifications_outlined,
+      activeIcon: Icons.notifications,
+      label: 'Alerts',
+      path: '/home/notifications',
+    ),
   ];
 
   int _currentIndex(BuildContext context) {
@@ -45,10 +65,7 @@ class MainShell extends ConsumerWidget {
           for (var i = 0; i < _tabs.length; i++)
             BottomNavigationBarItem(
               icon: i == 3 && unread > 0
-                  ? Badge(
-                      label: Text('$unread'),
-                      child: Icon(_tabs[i].icon),
-                    )
+                  ? Badge(label: Text('$unread'), child: Icon(_tabs[i].icon))
                   : Icon(_tabs[i].icon),
               activeIcon: i == 3 && unread > 0
                   ? Badge(

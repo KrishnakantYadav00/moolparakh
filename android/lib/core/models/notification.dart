@@ -62,14 +62,14 @@ class AppNotification extends Equatable {
   });
 
   factory AppNotification.fromJson(Map<String, dynamic> j) => AppNotification(
-        id: j['id'] as String,
-        kind: NotificationKindX.fromString(j['kind'] as String),
-        title: j['title'] as String,
-        vendorName: j['vendorName'] as String,
-        detail: j['detail'] as String,
-        read: j['read'] as bool? ?? false,
-        createdAt: DateTime.parse(j['createdAt'] as String),
-      );
+    id: j['id'] as String,
+    kind: NotificationKindX.fromString(j['kind'] as String),
+    title: j['title'] as String,
+    vendorName: j['vendorName'] as String,
+    detail: j['detail'] as String,
+    read: j['read'] as bool? ?? false,
+    createdAt: DateTime.parse(j['createdAt'] as String),
+  );
 
   Duration get age => DateTime.now().difference(createdAt);
 
@@ -83,14 +83,14 @@ class AppNotification extends Equatable {
   }
 
   AppNotification copyWith({bool? read}) => AppNotification(
-        id: id,
-        kind: kind,
-        title: title,
-        vendorName: vendorName,
-        detail: detail,
-        read: read ?? this.read,
-        createdAt: createdAt,
-      );
+    id: id,
+    kind: kind,
+    title: title,
+    vendorName: vendorName,
+    detail: detail,
+    read: read ?? this.read,
+    createdAt: createdAt,
+  );
 
   @override
   List<Object?> get props => [id, read, createdAt];

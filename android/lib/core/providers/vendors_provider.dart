@@ -48,14 +48,14 @@ class VendorDetailNotifier extends FamilyAsyncNotifier<Vendor, String> {
 /// All vendors list.
 final vendorListProvider =
     AsyncNotifierProvider<VendorListNotifier, List<Vendor>>(
-  VendorListNotifier.new,
-);
+      VendorListNotifier.new,
+    );
 
 /// Single vendor detail (keyed by vendor ID).
 final vendorDetailProvider =
     AsyncNotifierProviderFamily<VendorDetailNotifier, Vendor, String>(
-  VendorDetailNotifier.new,
-);
+      VendorDetailNotifier.new,
+    );
 
 /// Derived: vendors filtered by search query.
 final vendorSearchQueryProvider = StateProvider<String>((ref) => '');

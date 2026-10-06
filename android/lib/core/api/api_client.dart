@@ -50,7 +50,8 @@ class NetworkException extends ApiException {
 // ──────────────────────────────────────────────────────────────────────────────
 
 class ApiClient {
-  static const _defaultBase = 'http://10.0.2.2:5000/api'; // Android emulator → localhost
+  static const _defaultBase =
+      'http://10.0.2.2:5000/api'; // Android emulator → localhost
   static const _prefsKey = 'api_base_url';
 
   late final Dio _dio;
@@ -63,105 +64,119 @@ class ApiClient {
     final prefs = await SharedPreferences.getInstance();
     _base = prefs.getString(_prefsKey) ?? _defaultBase;
 
-    _dio = Dio(BaseOptions(
-      baseUrl: _base,
-      connectTimeout: const Duration(seconds: 15),
-      receiveTimeout: const Duration(seconds: 30),
-      sendTimeout: const Duration(seconds: 30),
-      headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-      },
-    ));
+    _dio = Dio(
+      BaseOptions(
+        baseUrl: _base,
+        connectTimeout: const Duration(seconds: 15),
+        receiveTimeout: const Duration(seconds: 30),
+        sendTimeout: const Duration(seconds: 30),
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+      ),
+    );
 
     // Retry interceptor for resilient network calls
-    _dio.interceptors.add(RetryInterceptor(
-      dio: _dio,
-      logPrint: print, // Specify log function
-      retries: 3, // Retry count
-      retryDelays: const [
-        Duration(seconds: 1),
-        Duration(seconds: 2),
-        Duration(seconds: 3),
-      ],
-      retryEvaluator: (error, attempt) {
-        if (error.type == DioExceptionType.connectionTimeout ||
-            error.type == DioExceptionType.receiveTimeout ||
-            error.type == DioExceptionType.sendTimeout ||
-            error.type == DioExceptionType.connectionError) {
-          return true;
-        }
-        if (error.response?.statusCode == 500 || error.response?.statusCode == 502 || error.response?.statusCode == 503) {
-          return true;
-        }
-        return false;
-      },
-    ));
+    _dio.interceptors.add(
+      RetryInterceptor(
+        dio: _dio,
+        logPrint: print, // Specify log function
+        retries: 3, // Retry count
+        retryDelays: const [
+          Duration(seconds: 1),
+          Duration(seconds: 2),
+          Duration(seconds: 3),
+        ],
+        retryEvaluator: (error, attempt) {
+          if (error.type == DioExceptionType.connectionTimeout ||
+              error.type == DioExceptionType.receiveTimeout ||
+              error.type == DioExceptionType.sendTimeout ||
+              error.type == DioExceptionType.connectionError) {
+            return true;
+          }
+          if (error.response?.statusCode == 500 ||
+              error.response?.statusCode == 502 ||
+              error.response?.statusCode == 503) {
+            return true;
+          }
+          return false;
+        },
+      ),
+    );
 
     // Readable request/response logs in debug builds
     assert(() {
-      _dio.interceptors.add(PrettyDioLogger(
-        requestHeader: true,
-        requestBody: true,
-        responseBody: true,
-        responseHeader: false,
-        error: true,
-        compact: true,
-      ));
+      _dio.interceptors.add(
+        PrettyDioLogger(
+          requestHeader: true,
+          requestBody: true,
+          responseBody: true,
+          responseHeader: false,
+          error: true,
+          compact: true,
+        ),
+      );
       return true;
     }());
 
     // Convert Dio errors into ApiException or NetworkException
-    _dio.interceptors.add(InterceptorsWrapper(
-      onRequest: (options, handler) async {
-        final connectivityResult = await Connectivity().checkConnectivity();
-        if (connectivityResult.contains(ConnectivityResult.none)) {
-          return handler.reject(
-            DioException(
-              requestOptions: options,
-              error: const NetworkException('No internet connection. Please check your network and try again.'),
-              type: DioExceptionType.connectionError,
-            ),
-          );
-        }
-        return handler.next(options);
-      },
-      onError: (e, handler) {
-        if (e.error is NetworkException) {
-          handler.reject(e);
-          return;
-        }
-        if (e.type == DioExceptionType.connectionTimeout || 
-            e.type == DioExceptionType.receiveTimeout || 
-            e.type == DioExceptionType.connectionError) {
-           handler.reject(
-             DioException(
+    _dio.interceptors.add(
+      InterceptorsWrapper(
+        onRequest: (options, handler) async {
+          final connectivityResult = await Connectivity().checkConnectivity();
+          if (connectivityResult.contains(ConnectivityResult.none)) {
+            return handler.reject(
+              DioException(
+                requestOptions: options,
+                error: const NetworkException(
+                  'No internet connection. Please check your network and try again.',
+                ),
+                type: DioExceptionType.connectionError,
+              ),
+            );
+          }
+          return handler.next(options);
+        },
+        onError: (e, handler) {
+          if (e.error is NetworkException) {
+            handler.reject(e);
+            return;
+          }
+          if (e.type == DioExceptionType.connectionTimeout ||
+              e.type == DioExceptionType.receiveTimeout ||
+              e.type == DioExceptionType.connectionError) {
+            handler.reject(
+              DioException(
                 requestOptions: e.requestOptions,
-                error: const NetworkException('Network timeout or connection error. Please try again.'),
+                error: const NetworkException(
+                  'Network timeout or connection error. Please try again.',
+                ),
                 type: e.type,
-             )
-           );
-           return;
-        }
-        
-        if (e.response != null) {
-          final data = e.response!.data;
-          final msg = (data is Map && data['error'] != null)
-              ? data['error'].toString()
-              : e.message ?? 'Unknown error';
-          handler.reject(
-            DioException(
-              requestOptions: e.requestOptions,
-              error: ApiException(msg, statusCode: e.response!.statusCode),
-              response: e.response,
-              type: e.type,
-            ),
-          );
-        } else {
-          handler.next(e);
-        }
-      },
-    ));
+              ),
+            );
+            return;
+          }
+
+          if (e.response != null) {
+            final data = e.response!.data;
+            final msg = (data is Map && data['error'] != null)
+                ? data['error'].toString()
+                : e.message ?? 'Unknown error';
+            handler.reject(
+              DioException(
+                requestOptions: e.requestOptions,
+                error: ApiException(msg, statusCode: e.response!.statusCode),
+                response: e.response,
+                type: e.type,
+              ),
+            );
+          } else {
+            handler.next(e);
+          }
+        },
+      ),
+    );
   }
 
   /// Update the base URL and persist it.
@@ -185,13 +200,14 @@ class ApiClient {
     return await _get('/vendors/$id') as Map<String, dynamic>;
   }
 
-  Future<Map<String, dynamic>> createVendor(
-      Map<String, dynamic> body) async {
+  Future<Map<String, dynamic>> createVendor(Map<String, dynamic> body) async {
     return await _post('/vendors', body) as Map<String, dynamic>;
   }
 
   Future<Map<String, dynamic>> updateVendor(
-      String id, Map<String, dynamic> body) async {
+    String id,
+    Map<String, dynamic> body,
+  ) async {
     final res = await _dio.patch('/vendors/$id', data: body);
     return res.data as Map<String, dynamic>;
   }
@@ -207,11 +223,12 @@ class ApiClient {
     required String documentType,
   }) async {
     return await _post('/documents/presign', {
-      'vendorId': vendorId,
-      'fileName': fileName,
-      'mimeType': mimeType,
-      'documentType': documentType,
-    }) as Map<String, dynamic>;
+          'vendorId': vendorId,
+          'fileName': fileName,
+          'mimeType': mimeType,
+          'documentType': documentType,
+        })
+        as Map<String, dynamic>;
   }
 
   /// PRD §5.7 — pre-signed URL flow step 2:
@@ -247,12 +264,13 @@ class ApiClient {
     required String documentType,
   }) async {
     return await _post('/documents', {
-      'vendorId': vendorId,
-      'fileKey': fileKey,
-      'mimeType': mimeType,
-      'fileSize': fileSize,
-      'type': documentType,
-    }) as Map<String, dynamic>;
+          'vendorId': vendorId,
+          'fileKey': fileKey,
+          'mimeType': mimeType,
+          'fileSize': fileSize,
+          'type': documentType,
+        })
+        as Map<String, dynamic>;
   }
 
   Future<List<Map<String, dynamic>>> listDocuments(String vendorId) async {
@@ -281,12 +299,13 @@ class ApiClient {
     String? notes,
   }) async {
     return await _post('/rfqs/$rfqId/bids', {
-      'vendorId': vendorId,
-      'pricePerUnit': pricePerUnit,
-      'deliveryDays': deliveryDays,
-      'trustScoreAtBid': trustScoreAtBid,
-      if (notes != null) 'notes': notes,
-    }) as Map<String, dynamic>;
+          'vendorId': vendorId,
+          'pricePerUnit': pricePerUnit,
+          'deliveryDays': deliveryDays,
+          'trustScoreAtBid': trustScoreAtBid,
+          if (notes != null) 'notes': notes,
+        })
+        as Map<String, dynamic>;
   }
 
   // ─── Notifications ────────────────────────────────────────────────────────
@@ -312,7 +331,8 @@ class ApiClient {
   }
 
   Future<List<Map<String, dynamic>>> disruptionEventsForVendor(
-      String vendorId) async {
+    String vendorId,
+  ) async {
     final res = await _get('/intelligence/events/$vendorId');
     return (res as List).cast<Map<String, dynamic>>();
   }

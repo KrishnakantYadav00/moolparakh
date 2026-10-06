@@ -71,9 +71,11 @@ class _ScoreSummaryCard extends StatelessWidget {
         padding: const EdgeInsets.all(20),
         child: Column(
           children: [
-            Text(vendor.displayName,
-                style: Theme.of(context).textTheme.titleMedium,
-                textAlign: TextAlign.center),
+            Text(
+              vendor.displayName,
+              style: Theme.of(context).textTheme.titleMedium,
+              textAlign: TextAlign.center,
+            ),
             const SizedBox(height: 20),
             Hero(
               tag: 'trust-badge-${vendor.id}',
@@ -135,8 +137,10 @@ class _SparklineCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('30-Day Trust History',
-                style: Theme.of(context).textTheme.titleSmall),
+            Text(
+              '30-Day Trust History',
+              style: Theme.of(context).textTheme.titleSmall,
+            ),
             const SizedBox(height: 16),
             SizedBox(
               height: 120,
@@ -148,10 +152,8 @@ class _SparklineCard extends StatelessWidget {
                     show: true,
                     drawVerticalLine: false,
                     horizontalInterval: 25,
-                    getDrawingHorizontalLine: (_) => FlLine(
-                      color: AppColors.divider,
-                      strokeWidth: 1,
-                    ),
+                    getDrawingHorizontalLine: (_) =>
+                        FlLine(color: AppColors.divider, strokeWidth: 1),
                   ),
                   titlesData: FlTitlesData(
                     bottomTitles: AxisTitles(
@@ -170,10 +172,9 @@ class _SparklineCard extends StatelessWidget {
                         reservedSize: 30,
                         getTitlesWidget: (v, _) => Text(
                           '${v.toInt()}',
-                          style: Theme.of(context)
-                              .textTheme
-                              .bodySmall
-                              ?.copyWith(fontSize: 10),
+                          style: Theme.of(
+                            context,
+                          ).textTheme.bodySmall?.copyWith(fontSize: 10),
                         ),
                       ),
                     ),
@@ -203,10 +204,7 @@ class _SparklineCard extends StatelessWidget {
                   DateFormat('dd MMM').format(points.first.recordedAt),
                   style: Theme.of(context).textTheme.bodySmall,
                 ),
-                Text(
-                  'Today',
-                  style: Theme.of(context).textTheme.bodySmall,
-                ),
+                Text('Today', style: Theme.of(context).textTheme.bodySmall),
               ],
             ),
           ],
@@ -230,8 +228,10 @@ class _ComponentBreakdownCard extends StatelessWidget {
       return Card(
         child: Padding(
           padding: const EdgeInsets.all(16),
-          child: Text('Score not yet computed.',
-              style: Theme.of(context).textTheme.bodyMedium),
+          child: Text(
+            'Score not yet computed.',
+            style: Theme.of(context).textTheme.bodyMedium,
+          ),
         ),
       );
     }
@@ -269,8 +269,10 @@ class _ComponentBreakdownCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Score Breakdown',
-                style: Theme.of(context).textTheme.titleSmall),
+            Text(
+              'Score Breakdown',
+              style: Theme.of(context).textTheme.titleSmall,
+            ),
             const SizedBox(height: 16),
             ...rows.map((r) => _ComponentRow(component: r)),
           ],
@@ -285,11 +287,12 @@ class _ScoreComponent {
   final int earned;
   final int max;
   final String note;
-  const _ScoreComponent(
-      {required this.label,
-      required this.earned,
-      required this.max,
-      required this.note});
+  const _ScoreComponent({
+    required this.label,
+    required this.earned,
+    required this.max,
+    required this.note,
+  });
 }
 
 class _ComponentRow extends StatelessWidget {
@@ -309,8 +312,10 @@ class _ComponentRow extends StatelessWidget {
           Row(
             children: [
               Expanded(
-                child: Text(component.label,
-                    style: Theme.of(context).textTheme.titleSmall),
+                child: Text(
+                  component.label,
+                  style: Theme.of(context).textTheme.titleSmall,
+                ),
               ),
               Text(
                 '${component.earned} / ${component.max}',
@@ -333,8 +338,7 @@ class _ComponentRow extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 4),
-          Text(component.note,
-              style: Theme.of(context).textTheme.bodySmall),
+          Text(component.note, style: Theme.of(context).textTheme.bodySmall),
         ],
       ),
     );
@@ -368,13 +372,9 @@ class _Section43bCard extends StatelessWidget {
             Row(
               children: [
                 Icon(
-                  udyamVerified
-                      ? Icons.gavel
-                      : Icons.warning_amber_outlined,
+                  udyamVerified ? Icons.gavel : Icons.warning_amber_outlined,
                   size: 18,
-                  color: udyamVerified
-                      ? AppColors.verified
-                      : AppColors.failed,
+                  color: udyamVerified ? AppColors.verified : AppColors.failed,
                 ),
                 const SizedBox(width: 8),
                 Text(
@@ -387,9 +387,9 @@ class _Section43bCard extends StatelessWidget {
             Text(
               udyamVerified
                   ? '✅ Udyam registration verified. Buyer must pay within 45 days '
-                      'to avoid income-tax disallowance under Section 43B(h).'
+                        'to avoid income-tax disallowance under Section 43B(h).'
                   : '⚠️ Udyam registration not verified. Buyer cannot confirm '
-                      'MSME status — Section 43B(h) exposure is unquantifiable.',
+                        'MSME status — Section 43B(h) exposure is unquantifiable.',
               style: Theme.of(context).textTheme.bodyMedium,
             ),
             const SizedBox(height: 8),
@@ -397,10 +397,9 @@ class _Section43bCard extends StatelessWidget {
               'Finance Act 2023, Section 43B(h): payments to MSME suppliers '
               'must be made within 45 days (15 days if no written agreement). '
               'Late payment is disallowed as a business expense.',
-              style: Theme.of(context)
-                  .textTheme
-                  .bodySmall
-                  ?.copyWith(color: AppColors.textSecondary),
+              style: Theme.of(
+                context,
+              ).textTheme.bodySmall?.copyWith(color: AppColors.textSecondary),
             ),
           ],
         ),

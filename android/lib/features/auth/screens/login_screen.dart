@@ -57,8 +57,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString('current_vendor_id', _vendorIdCtrl.text.trim());
 
-      ref.read(currentVendorIdProvider.notifier).state =
-          _vendorIdCtrl.text.trim();
+      ref.read(currentVendorIdProvider.notifier).state = _vendorIdCtrl.text
+          .trim();
 
       if (mounted) context.go('/home/dashboard');
     } catch (e) {
@@ -91,8 +91,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       color: AppColors.primary,
                       borderRadius: BorderRadius.circular(12),
                     ),
-                    child: const Icon(Icons.verified_user,
-                        color: Colors.white, size: 28),
+                    child: const Icon(
+                      Icons.verified_user,
+                      color: Colors.white,
+                      size: 28,
+                    ),
                   ),
                   const SizedBox(width: 12),
                   Column(
@@ -101,9 +104,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       Text(
                         'MoolParakh',
                         style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                              color: AppColors.primary,
-                              fontWeight: FontWeight.w700,
-                            ),
+                          color: AppColors.primary,
+                          fontWeight: FontWeight.w700,
+                        ),
                       ),
                       Text(
                         'Supplier Portal',
@@ -124,8 +127,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               Text(
                 'Sign in with your Vendor ID to manage KYC documents and respond to RFQs.',
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: AppColors.textSecondary,
-                    ),
+                  color: AppColors.textSecondary,
+                ),
               ),
 
               const SizedBox(height: 40),
@@ -158,8 +161,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                 ? Icons.visibility_outlined
                                 : Icons.visibility_off_outlined,
                           ),
-                          onPressed: () =>
-                              setState(() => _obscure = !_obscure),
+                          onPressed: () => setState(() => _obscure = !_obscure),
                         ),
                       ),
                       validator: (v) =>
@@ -222,8 +224,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Icon(Icons.info_outline,
-                        size: 16, color: AppColors.primaryLight),
+                    Icon(
+                      Icons.info_outline,
+                      size: 16,
+                      color: AppColors.primaryLight,
+                    ),
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(

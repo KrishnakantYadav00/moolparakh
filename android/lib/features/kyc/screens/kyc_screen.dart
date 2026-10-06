@@ -18,7 +18,8 @@ class KycScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final vendorId = ref.watch(currentVendorIdProvider);
 
-    if (vendorId == null) return const Scaffold(body: Center(child: Text('Not logged in')));
+    if (vendorId == null)
+      return const Scaffold(body: Center(child: Text('Not logged in')));
 
     final vendorAsync = ref.watch(vendorDetailProvider(vendorId));
 
@@ -30,7 +31,9 @@ class KycScreen extends ConsumerWidget {
           ref.read(vendorDetailProvider(vendorId).notifier).refresh();
         },
         child: CustomScrollView(
-          physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
+          physics: const BouncingScrollPhysics(
+            parent: AlwaysScrollableScrollPhysics(),
+          ),
           slivers: [
             SliverAppBar(
               expandedHeight: 120.0,
@@ -59,10 +62,11 @@ class KycScreen extends ConsumerWidget {
                 ),
               ),
             ),
-            
+
             vendorAsync.when(
               loading: () => const SliverToBoxAdapter(child: _KycShimmer()),
-              error: (e, _) => SliverToBoxAdapter(child: Center(child: Text('Error: $e'))),
+              error: (e, _) =>
+                  SliverToBoxAdapter(child: Center(child: Text('Error: $e'))),
               data: (vendor) => SliverPadding(
                 padding: const EdgeInsets.all(16),
                 sliver: SliverToBoxAdapter(
@@ -122,7 +126,10 @@ class _KycShimmer extends StatelessWidget {
             child: Container(
               height: 200,
               width: double.infinity,
-              decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12)),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+              ),
             ),
           ),
         ),
@@ -130,32 +137,33 @@ class _KycShimmer extends StatelessWidget {
         Shimmer.fromColors(
           baseColor: AppColors.shimmer,
           highlightColor: AppColors.shimmerHighlight,
-          child: Container(
-            height: 24,
-            width: 150,
-            color: Colors.white,
-          ),
+          child: Container(height: 24, width: 150, color: Colors.white),
         ),
         const SizedBox(height: 16),
-        ...List.generate(3, (index) => Padding(
-          padding: const EdgeInsets.only(bottom: 12),
-          child: Shimmer.fromColors(
-            baseColor: AppColors.shimmer,
-            highlightColor: AppColors.shimmerHighlight,
-            child: Card(
-              child: Container(
-                height: 100,
-                width: double.infinity,
-                decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12)),
+        ...List.generate(
+          3,
+          (index) => Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: Shimmer.fromColors(
+              baseColor: AppColors.shimmer,
+              highlightColor: AppColors.shimmerHighlight,
+              child: Card(
+                child: Container(
+                  height: 100,
+                  width: double.infinity,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
               ),
             ),
           ),
-        )),
+        ),
       ],
     );
   }
 }
-
 
 class _ProfileCard extends StatelessWidget {
   final Vendor vendor;
@@ -172,23 +180,28 @@ class _ProfileCard extends StatelessWidget {
             Row(
               children: [
                 Expanded(
-                  child: Text(vendor.legalName,
-                      style: Theme.of(context).textTheme.titleMedium),
+                  child: Text(
+                    vendor.legalName,
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
                 ),
                 StatusChip.vendorStatus(vendor.status.name.toUpperCase()),
               ],
             ),
             if (vendor.tradeName != null && vendor.tradeName!.isNotEmpty) ...[
               const SizedBox(height: 4),
-              Text('T/A: ${vendor.tradeName}',
-                  style: Theme.of(context).textTheme.bodySmall),
+              Text(
+                'T/A: ${vendor.tradeName}',
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
             ],
             const SizedBox(height: 16),
             const Divider(),
             const SizedBox(height: 12),
             if (vendor.pan != null) _DataRow('PAN', vendor.pan!),
             if (vendor.gstin != null) _DataRow('GSTIN', vendor.gstin!),
-            if (vendor.udyamNumber != null) _DataRow('UDYAM', vendor.udyamNumber!),
+            if (vendor.udyamNumber != null)
+              _DataRow('UDYAM', vendor.udyamNumber!),
             _DataRow('Email', vendor.email),
             _DataRow('Phone', vendor.phone),
             const SizedBox(height: 12),
@@ -200,12 +213,18 @@ class _ProfileCard extends StatelessWidget {
               ),
               child: Row(
                 children: [
-                  const Icon(Icons.info_outline, size: 16, color: AppColors.primary),
+                  const Icon(
+                    Icons.info_outline,
+                    size: 16,
+                    color: AppColors.primary,
+                  ),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
                       'To update core details, please upload a new authoritative document (GST or Udyam).',
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(color: AppColors.primary),
+                      style: Theme.of(
+                        context,
+                      ).textTheme.bodySmall?.copyWith(color: AppColors.primary),
                     ),
                   ),
                 ],
@@ -234,8 +253,10 @@ class _DataRow extends StatelessWidget {
             child: Text(label, style: Theme.of(context).textTheme.bodySmall),
           ),
           Expanded(
-            child: Text(value,
-                style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 13)),
+            child: Text(
+              value,
+              style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 13),
+            ),
           ),
         ],
       ),
@@ -257,8 +278,10 @@ class _DocumentsSection extends StatelessWidget {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text('Uploaded Documents',
-                style: Theme.of(context).textTheme.titleSmall),
+            Text(
+              'Uploaded Documents',
+              style: Theme.of(context).textTheme.titleSmall,
+            ),
             if (docs.any((d) => d.status.isProcessing))
               TextButton.icon(
                 onPressed: () => context.push('/kyc/status/${vendor.id}'),
@@ -287,16 +310,23 @@ class _EmptyDocsState extends StatelessWidget {
       padding: const EdgeInsets.all(32),
       decoration: BoxDecoration(
         color: AppColors.surfaceCard,
-        border: Border.all(color: AppColors.divider, style: BorderStyle.dash),
+        border: Border.all(color: AppColors.divider),
         borderRadius: BorderRadius.circular(12),
       ),
       child: Column(
         children: [
-          const Icon(Icons.drive_folder_upload,
-              size: 48, color: AppColors.textSecondary),
+          const Icon(
+            Icons.drive_folder_upload,
+            size: 48,
+            color: AppColors.textSecondary,
+          ),
           const SizedBox(height: 16),
-          Text('No documents uploaded',
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600)),
+          Text(
+            'No documents uploaded',
+            style: Theme.of(
+              context,
+            ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
+          ),
           const SizedBox(height: 8),
           Text(
             'Upload your Udyam (MSME) or GSTIN certificates to start the automated KYC process.',
@@ -328,7 +358,9 @@ class _DocTile extends StatelessWidget {
                   child: Text(
                     doc.type.replaceAll('_', ' '),
                     style: const TextStyle(
-                        fontSize: 14, fontWeight: FontWeight.w600),
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                 ),
                 StatusChip.documentStatus(doc.status.name.toUpperCase()),
@@ -338,7 +370,9 @@ class _DocTile extends StatelessWidget {
             Row(
               children: [
                 Icon(
-                  doc.status == DocumentStatus.parsed ? Icons.check_circle_outline : Icons.schedule,
+                  doc.status == DocumentStatus.parsed
+                      ? Icons.check_circle_outline
+                      : Icons.schedule,
                   size: 14,
                   color: AppColors.textSecondary,
                 ),
@@ -353,7 +387,10 @@ class _DocTile extends StatelessWidget {
               const SizedBox(height: 6),
               Text(
                 'No: ${doc.certificateNumber}',
-                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+                style: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
+                ),
               ),
             ],
             if (doc.isExpired || doc.isExpiringSoon) ...[

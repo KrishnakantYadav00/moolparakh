@@ -14,7 +14,7 @@ class RfqListNotifier extends AsyncNotifier<List<Rfq>> {
     // 1. Immediately yield cached data if available (0ms render time)
     final prefs = await SharedPreferences.getInstance();
     final cachedStr = prefs.getString(_rfqCacheKey);
-    
+
     if (cachedStr != null) {
       try {
         final List<dynamic> rawList = jsonDecode(cachedStr);
@@ -32,7 +32,7 @@ class RfqListNotifier extends AsyncNotifier<List<Rfq>> {
   Future<List<Rfq>> _fetch() async {
     final raw = await ApiClient.instance.listRfqs();
     final rfqs = raw.map((j) => Rfq.fromJson(j)).toList();
-    
+
     // Save to cache asynchronously
     SharedPreferences.getInstance().then((prefs) {
       prefs.setString(_rfqCacheKey, jsonEncode(raw));
@@ -69,18 +69,21 @@ final rfqListProvider = AsyncNotifierProvider<RfqListNotifier, List<Rfq>>(
 
 final rfqDetailProvider =
     AsyncNotifierProviderFamily<RfqDetailNotifier, Rfq, String>(
-  RfqDetailNotifier.new,
-);
+      RfqDetailNotifier.new,
+    );
 
 /// Derived: only OPEN RFQs the supplier can bid on.
 final openRfqsProvider = Provider<AsyncValue<List<Rfq>>>((ref) {
-  return ref.watch(rfqListProvider).whenData(
+  return ref
+      .watch(rfqListProvider)
+      .whenData(
         (rfqs) => rfqs.where((r) => r.status.isOpen && !r.isClosed).toList(),
       );
 });
 
 /// Bid weights — adjustable per-RFQ in the UI.
-class BidWeightsNotifier extends Notifier<({double price, double delivery, double trust})> {
+class BidWeightsNotifier
+    extends Notifier<({double price, double delivery, double trust})> {
   @override
   ({double price, double delivery, double trust}) build() =>
       (price: 0.45, delivery: 0.30, trust: 0.25);
@@ -101,6 +104,7 @@ class BidWeightsNotifier extends Notifier<({double price, double delivery, doubl
 }
 
 final bidWeightsProvider =
-    NotifierProvider<BidWeightsNotifier, ({double price, double delivery, double trust})>(
-  BidWeightsNotifier.new,
-);
+    NotifierProvider<
+      BidWeightsNotifier,
+      ({double price, double delivery, double trust})
+    >(BidWeightsNotifier.new);

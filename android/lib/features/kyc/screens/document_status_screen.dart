@@ -26,8 +26,7 @@ class DocumentStatusScreen extends ConsumerStatefulWidget {
       _DocumentStatusScreenState();
 }
 
-class _DocumentStatusScreenState
-    extends ConsumerState<DocumentStatusScreen> {
+class _DocumentStatusScreenState extends ConsumerState<DocumentStatusScreen> {
   List<VendorDocument>? _docs;
   bool _loading = true;
   String? _error;
@@ -48,8 +47,7 @@ class _DocumentStatusScreenState
   Future<void> _load() async {
     try {
       final raw = await ApiClient.instance.listDocuments(widget.vendorId);
-      final docs =
-          raw.map((j) => VendorDocument.fromJson(j)).toList();
+      final docs = raw.map((j) => VendorDocument.fromJson(j)).toList();
       setState(() {
         _docs = docs;
         _loading = false;
@@ -65,8 +63,9 @@ class _DocumentStatusScreenState
 
   void _schedulePollIfNeeded(List<VendorDocument> docs) {
     _pollTimer?.cancel();
-    final hasProcessing =
-        docs.any((d) => d.status == DocumentStatus.processingOcr);
+    final hasProcessing = docs.any(
+      (d) => d.status == DocumentStatus.processingOcr,
+    );
     if (hasProcessing) {
       // PRD §14.4 mock server protocol: poll every 5 seconds
       _pollTimer = Timer.periodic(const Duration(seconds: 5), (_) => _load());
@@ -79,28 +78,24 @@ class _DocumentStatusScreenState
       appBar: AppBar(
         title: const Text('Document Status'),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: _load,
-          ),
+          IconButton(icon: const Icon(Icons.refresh), onPressed: _load),
         ],
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : _error != null
-              ? Center(child: Text('Error: $_error'))
-              : _docs!.isEmpty
-                  ? const _EmptyState()
-                  : RefreshIndicator(
-                      onRefresh: _load,
-                      child: ListView.separated(
-                        padding: const EdgeInsets.all(16),
-                        itemCount: _docs!.length,
-                        separatorBuilder: (_, __) =>
-                            const SizedBox(height: 8),
-                        itemBuilder: (_, i) => _DocCard(doc: _docs![i]),
-                      ),
-                    ),
+          ? Center(child: Text('Error: $_error'))
+          : _docs!.isEmpty
+          ? const _EmptyState()
+          : RefreshIndicator(
+              onRefresh: _load,
+              child: ListView.separated(
+                padding: const EdgeInsets.all(16),
+                itemCount: _docs!.length,
+                separatorBuilder: (_, __) => const SizedBox(height: 8),
+                itemBuilder: (_, i) => _DocCard(doc: _docs![i]),
+              ),
+            ),
     );
   }
 }
@@ -119,8 +114,11 @@ class _DocCard extends StatelessWidget {
           children: [
             Row(
               children: [
-                const Icon(Icons.description_outlined,
-                    size: 18, color: AppColors.primary),
+                const Icon(
+                  Icons.description_outlined,
+                  size: 18,
+                  color: AppColors.primary,
+                ),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
@@ -139,10 +137,9 @@ class _DocCard extends StatelessWidget {
               const SizedBox(height: 4),
               Text(
                 'OCR pipeline is processing your document…',
-                style: Theme.of(context)
-                    .textTheme
-                    .bodySmall
-                    ?.copyWith(color: AppColors.primary),
+                style: Theme.of(
+                  context,
+                ).textTheme.bodySmall?.copyWith(color: AppColors.primary),
               ),
             ],
 
@@ -151,38 +148,37 @@ class _DocCard extends StatelessWidget {
               const Divider(),
               const SizedBox(height: 6),
               if (doc.certificateNumber != null)
-                _FieldRow('Certificate No.',
-                    doc.certificateNumber!),
+                _FieldRow('Certificate No.', doc.certificateNumber!),
               if (doc.issuingAuthority != null)
                 _FieldRow('Issuing Authority', doc.issuingAuthority!),
               if (doc.issueDate != null)
                 _FieldRow(
-                    'Issue Date',
-                    DateFormat('dd MMM yyyy')
-                        .format(doc.issueDate!)),
+                  'Issue Date',
+                  DateFormat('dd MMM yyyy').format(doc.issueDate!),
+                ),
               if (doc.expirationDate != null)
                 _FieldRow(
-                    'Expiry Date',
-                    DateFormat('dd MMM yyyy')
-                        .format(doc.expirationDate!),
-                    highlight: doc.isExpired || doc.isExpiringSoon,
-                    highlightColor: doc.isExpired
-                        ? AppColors.failed
-                        : AppColors.pending),
+                  'Expiry Date',
+                  DateFormat('dd MMM yyyy').format(doc.expirationDate!),
+                  highlight: doc.isExpired || doc.isExpiringSoon,
+                  highlightColor: doc.isExpired
+                      ? AppColors.failed
+                      : AppColors.pending,
+                ),
               if (doc.confidence != null && doc.confidence! > 0)
                 _FieldRow(
-                    'OCR Confidence',
-                    '${(doc.confidence! * 100).toStringAsFixed(1)}%'),
+                  'OCR Confidence',
+                  '${(doc.confidence! * 100).toStringAsFixed(1)}%',
+                ),
             ],
 
             if (doc.status == DocumentStatus.failed) ...[
               const SizedBox(height: 8),
               Text(
                 'Extraction failed. Please re-upload a clearer image.',
-                style: Theme.of(context)
-                    .textTheme
-                    .bodySmall
-                    ?.copyWith(color: AppColors.failed),
+                style: Theme.of(
+                  context,
+                ).textTheme.bodySmall?.copyWith(color: AppColors.failed),
               ),
             ],
 
@@ -203,8 +199,12 @@ class _FieldRow extends StatelessWidget {
   final String value;
   final bool highlight;
   final Color? highlightColor;
-  const _FieldRow(this.label, this.value,
-      {this.highlight = false, this.highlightColor});
+  const _FieldRow(
+    this.label,
+    this.value, {
+    this.highlight = false,
+    this.highlightColor,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -215,8 +215,7 @@ class _FieldRow extends StatelessWidget {
         children: [
           SizedBox(
             width: 120,
-            child: Text(label,
-                style: Theme.of(context).textTheme.bodySmall),
+            child: Text(label, style: Theme.of(context).textTheme.bodySmall),
           ),
           Expanded(
             child: Text(
@@ -224,9 +223,7 @@ class _FieldRow extends StatelessWidget {
               style: TextStyle(
                 fontSize: 13,
                 fontWeight: FontWeight.w500,
-                color: highlight
-                    ? highlightColor
-                    : AppColors.textPrimary,
+                color: highlight ? highlightColor : AppColors.textPrimary,
               ),
             ),
           ),

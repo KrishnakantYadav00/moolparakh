@@ -16,14 +16,12 @@ class DashboardScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // 1. Optimize rebuilds: only watch the vendor ID first to avoid rebuilding 
+    // 1. Optimize rebuilds: only watch the vendor ID first to avoid rebuilding
     // the whole Scaffold when vendor details change.
     final vendorId = ref.watch(currentVendorIdProvider);
 
     if (vendorId == null) {
-      return const Scaffold(
-        body: Center(child: Text('Not logged in')),
-      );
+      return const Scaffold(body: Center(child: Text('Not logged in')));
     }
 
     return Scaffold(
@@ -34,7 +32,9 @@ class DashboardScreen extends ConsumerWidget {
           ref.read(vendorDetailProvider(vendorId).notifier).refresh();
         },
         child: CustomScrollView(
-          physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
+          physics: const BouncingScrollPhysics(
+            parent: AlwaysScrollableScrollPhysics(),
+          ),
           slivers: [
             // Premium Sliver App Bar
             SliverAppBar(
@@ -65,7 +65,10 @@ class DashboardScreen extends ConsumerWidget {
               ),
               actions: [
                 IconButton(
-                  icon: const Icon(Icons.notifications_none, color: Colors.white),
+                  icon: const Icon(
+                    Icons.notifications_none,
+                    color: Colors.white,
+                  ),
                   onPressed: () {
                     HapticFeedback.lightImpact();
                     context.push('/notifications');
@@ -75,12 +78,13 @@ class DashboardScreen extends ConsumerWidget {
                   icon: const Icon(Icons.logout, color: Colors.white),
                   onPressed: () {
                     HapticFeedback.mediumImpact();
-                    ref.read(authServiceProvider).logout();
+                    ref.read(currentVendorIdProvider.notifier).state = null;
+                    context.go('/login');
                   },
                 ),
               ],
             ),
-            
+
             // Staggered Content Area (Isolating Vendor Watch)
             SliverToBoxAdapter(
               child: _VendorDashboardContent(vendorId: vendorId),
@@ -105,7 +109,10 @@ class _VendorDashboardContent extends ConsumerWidget {
       error: (e, _) => Center(
         child: Padding(
           padding: const EdgeInsets.all(32.0),
-          child: Text('Failed to load dashboard: $e', style: const TextStyle(color: AppColors.failed)),
+          child: Text(
+            'Failed to load dashboard: $e',
+            style: const TextStyle(color: AppColors.failed),
+          ),
         ),
       ),
       data: (vendor) => AnimationLimiter(
@@ -152,8 +159,12 @@ class _DashboardShimmer extends StatelessWidget {
             baseColor: AppColors.shimmer,
             highlightColor: AppColors.shimmerHighlight,
             child: Container(
-              height: 24, width: 200,
-              decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(4)),
+              height: 24,
+              width: 200,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(4),
+              ),
             ),
           ),
           const SizedBox(height: 24),
@@ -161,8 +172,12 @@ class _DashboardShimmer extends StatelessWidget {
             baseColor: AppColors.shimmer,
             highlightColor: AppColors.shimmerHighlight,
             child: Container(
-              height: 180, width: double.infinity,
-              decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16)),
+              height: 180,
+              width: double.infinity,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+              ),
             ),
           ),
           const SizedBox(height: 24),
@@ -174,7 +189,10 @@ class _DashboardShimmer extends StatelessWidget {
                   highlightColor: AppColors.shimmerHighlight,
                   child: Container(
                     height: 100,
-                    decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16)),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(16),
+                    ),
                   ),
                 ),
               ),
@@ -185,7 +203,10 @@ class _DashboardShimmer extends StatelessWidget {
                   highlightColor: AppColors.shimmerHighlight,
                   child: Container(
                     height: 100,
-                    decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16)),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(16),
+                    ),
                   ),
                 ),
               ),
@@ -218,7 +239,9 @@ class _WelcomeHeader extends StatelessWidget {
               children: [
                 Text(
                   'Welcome back,',
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: AppColors.textSecondary),
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: AppColors.textSecondary,
+                  ),
                 ),
                 const SizedBox(height: 4),
                 Text(
@@ -247,7 +270,7 @@ class _TrustScoreHeroCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final score = vendor.trustScore?.overallScore ?? 0;
-    
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
       child: GestureDetector(
@@ -288,7 +311,11 @@ class _TrustScoreHeroCard extends StatelessWidget {
                   tag: 'trust-badge-${vendor.id}',
                   child: Material(
                     color: Colors.transparent,
-                    child: TrustScoreBadge(score: score, size: 120, strokeWidth: 10),
+                    child: TrustScoreBadge(
+                      score: score,
+                      size: 120,
+                      strokeWidth: 10,
+                    ),
                   ),
                 ),
               ),
@@ -309,9 +336,12 @@ class _TrustScoreHeroCard extends StatelessWidget {
   }
 
   String _getScoreMessage(int score) {
-    if (score == 0) return 'Upload your Udyam and GSTIN to calculate your score.';
-    if (score >= 80) return 'Excellent! You are highly attractive to enterprise buyers. Keep your documents updated.';
-    if (score >= 50) return 'Your score is moderate. Ensure no GST filing delays to improve your ranking.';
+    if (score == 0)
+      return 'Upload your Udyam and GSTIN to calculate your score.';
+    if (score >= 80)
+      return 'Excellent! You are highly attractive to enterprise buyers. Keep your documents updated.';
+    if (score >= 50)
+      return 'Your score is moderate. Ensure no GST filing delays to improve your ranking.';
     return 'Action Required: Your low score severely impacts your bid win rate under Section 43B(h).';
   }
 }
@@ -323,18 +353,25 @@ class _Section43bAlertCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final docs = vendor.documents;
-    final hasUdyam = docs.any((d) => d.type == 'UDYAM_CERTIFICATE' && d.status == DocumentStatus.parsed);
-    final isCritical = !hasUdyam || (vendor.trustScore?.overallScore ?? 100) < 50;
+    final hasUdyam = docs.any(
+      (d) => d.type == 'UDYAM_CERTIFICATE' && d.status == DocumentStatus.parsed,
+    );
+    final isCritical =
+        !hasUdyam || (vendor.trustScore?.overallScore ?? 100) < 50;
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
       child: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: isCritical ? AppColors.failed.withAlpha(15) : AppColors.primaryContainer.withAlpha(50),
+          color: isCritical
+              ? AppColors.failed.withAlpha(15)
+              : AppColors.primary.withAlpha(15),
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: isCritical ? AppColors.failed.withAlpha(50) : AppColors.primaryContainer,
+            color: isCritical
+                ? AppColors.failed.withAlpha(50)
+                : AppColors.primary.withAlpha(50),
           ),
         ),
         child: Row(
@@ -360,11 +397,13 @@ class _Section43bAlertCard extends StatelessWidget {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    hasUdyam 
-                      ? 'Your MSME Udyam status is active. Buyers can claim deductions on time.'
-                      : 'Missing Udyam Certificate! Buyers may reject your bids to avoid 43B(h) tax penalties. Upload immediately.',
+                    hasUdyam
+                        ? 'Your MSME Udyam status is active. Buyers can claim deductions on time.'
+                        : 'Missing Udyam Certificate! Buyers may reject your bids to avoid 43B(h) tax penalties. Upload immediately.',
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: isCritical ? AppColors.failed.withAlpha(200) : AppColors.textPrimary,
+                      color: isCritical
+                          ? AppColors.failed.withAlpha(200)
+                          : AppColors.textPrimary,
                     ),
                   ),
                 ],

@@ -75,15 +75,15 @@ class RfqSpec extends Equatable {
   });
 
   factory RfqSpec.fromJson(Map<String, dynamic> j) => RfqSpec(
-        item: j['item'] as String? ?? '',
-        standard: j['standard'] as String? ?? '',
-        grade: j['grade'] as String? ?? '',
-        quantity: (j['quantity'] as num?)?.toInt() ?? 0,
-        unit: j['unit'] as String? ?? '',
-        deliveryDays: (j['deliveryDays'] as num?)?.toInt() ?? 0,
-        deliveryLocation: j['deliveryLocation'] as String? ?? '',
-        qualityNotes: j['qualityNotes'] as String? ?? '',
-      );
+    item: j['item'] as String? ?? '',
+    standard: j['standard'] as String? ?? '',
+    grade: j['grade'] as String? ?? '',
+    quantity: (j['quantity'] as num?)?.toInt() ?? 0,
+    unit: j['unit'] as String? ?? '',
+    deliveryDays: (j['deliveryDays'] as num?)?.toInt() ?? 0,
+    deliveryLocation: j['deliveryLocation'] as String? ?? '',
+    qualityNotes: j['qualityNotes'] as String? ?? '',
+  );
 
   @override
   List<Object?> get props => [item, quantity, unit];
@@ -113,16 +113,16 @@ class Bid extends Equatable {
   });
 
   factory Bid.fromJson(Map<String, dynamic> j) => Bid(
-        id: j['id'] as String,
-        rfqId: j['rfqId'] as String,
-        vendorId: j['vendorId'] as String,
-        vendorName: j['vendorName'] as String,
-        pricePerUnit: (j['pricePerUnit'] as num).toDouble(),
-        deliveryDays: (j['deliveryDays'] as num).toInt(),
-        trustScoreAtBid: (j['trustScoreAtBid'] as num).toInt(),
-        notes: j['notes'] as String?,
-        submittedAt: DateTime.parse(j['submittedAt'] as String),
-      );
+    id: j['id'] as String,
+    rfqId: j['rfqId'] as String,
+    vendorId: j['vendorId'] as String,
+    vendorName: j['vendorName'] as String,
+    pricePerUnit: (j['pricePerUnit'] as num).toDouble(),
+    deliveryDays: (j['deliveryDays'] as num).toInt(),
+    trustScoreAtBid: (j['trustScoreAtBid'] as num).toInt(),
+    notes: j['notes'] as String?,
+    submittedAt: DateTime.parse(j['submittedAt'] as String),
+  );
 
   @override
   List<Object?> get props => [id, rfqId, vendorId];
@@ -193,7 +193,8 @@ class BidEvaluator {
           : 1.0 - (b.deliveryDays - minDays) / (maxDays - minDays);
       final trustNorm = b.trustScoreAtBid / 100.0;
 
-      final composite = priceScore * priceWeight +
+      final composite =
+          priceScore * priceWeight +
           deliveryScore * deliveryWeight +
           trustNorm * trustWeight;
 
@@ -253,21 +254,22 @@ class Rfq extends Equatable {
   });
 
   factory Rfq.fromJson(Map<String, dynamic> j) => Rfq(
-        id: j['id'] as String,
-        reference: j['reference'] as String,
-        title: j['title'] as String,
-        status: RfqStatusX.fromString(j['status'] as String),
-        spec: RfqSpec.fromJson(j['spec'] as Map<String, dynamic>),
-        freeText: j['freeText'] as String?,
-        suppliersNotified: (j['suppliersNotified'] as num?)?.toInt() ?? 0,
-        closesAt: DateTime.parse(j['closesAt'] as String),
-        awardedVendorId: j['awardedVendorId'] as String?,
-        createdAt: DateTime.parse(j['createdAt'] as String),
-        bids: (j['bids'] as List<dynamic>?)
-                ?.map((e) => Bid.fromJson(e as Map<String, dynamic>))
-                .toList() ??
-            [],
-      );
+    id: j['id'] as String,
+    reference: j['reference'] as String,
+    title: j['title'] as String,
+    status: RfqStatusX.fromString(j['status'] as String),
+    spec: RfqSpec.fromJson(j['spec'] as Map<String, dynamic>),
+    freeText: j['freeText'] as String?,
+    suppliersNotified: (j['suppliersNotified'] as num?)?.toInt() ?? 0,
+    closesAt: DateTime.parse(j['closesAt'] as String),
+    awardedVendorId: j['awardedVendorId'] as String?,
+    createdAt: DateTime.parse(j['createdAt'] as String),
+    bids:
+        (j['bids'] as List<dynamic>?)
+            ?.map((e) => Bid.fromJson(e as Map<String, dynamic>))
+            .toList() ??
+        [],
+  );
 
   Duration get timeRemaining => closesAt.difference(DateTime.now());
   bool get isClosed => !status.isOpen || timeRemaining.isNegative;

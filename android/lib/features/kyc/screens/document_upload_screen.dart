@@ -35,11 +35,14 @@ const _docTypes = [
   'OTHER',
 ];
 
-String _docTypeLabel(String t) =>
-    t.replaceAll('_', ' ').split(' ').map((w) {
+String _docTypeLabel(String t) => t
+    .replaceAll('_', ' ')
+    .split(' ')
+    .map((w) {
       if (w.isEmpty) return w;
       return w[0].toUpperCase() + w.substring(1).toLowerCase();
-    }).join(' ');
+    })
+    .join(' ');
 
 class DocumentUploadScreen extends ConsumerStatefulWidget {
   final String vendorId;
@@ -50,8 +53,7 @@ class DocumentUploadScreen extends ConsumerStatefulWidget {
       _DocumentUploadScreenState();
 }
 
-class _DocumentUploadScreenState
-    extends ConsumerState<DocumentUploadScreen> {
+class _DocumentUploadScreenState extends ConsumerState<DocumentUploadScreen> {
   File? _file;
   String _docType = _docTypes.first;
   bool _uploading = false;
@@ -73,9 +75,14 @@ class _DocumentUploadScreenState
       context: context,
       builder: (ctx) => AlertDialog(
         title: Text('$type Permission Required'),
-        content: Text('Please enable $type permission in app settings to upload documents.'),
+        content: Text(
+          'Please enable $type permission in app settings to upload documents.',
+        ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
           TextButton(
             onPressed: () {
               Navigator.pop(ctx);
@@ -171,9 +178,7 @@ class _DocumentUploadScreenState
       );
 
       // Refresh vendor detail so KYC screen is up to date
-      ref
-          .read(vendorDetailProvider(widget.vendorId).notifier)
-          .refresh();
+      ref.read(vendorDetailProvider(widget.vendorId).notifier).refresh();
 
       setState(() {
         _done = true;
@@ -202,8 +207,7 @@ class _DocumentUploadScreenState
       padding: const EdgeInsets.all(20),
       children: [
         // ── Document type selector ─────────────────────────────────────────
-        Text('Document Type',
-            style: Theme.of(context).textTheme.titleSmall),
+        Text('Document Type', style: Theme.of(context).textTheme.titleSmall),
         const SizedBox(height: 8),
         DropdownButtonFormField<String>(
           value: _docType,
@@ -211,28 +215,30 @@ class _DocumentUploadScreenState
             prefixIcon: Icon(Icons.category_outlined),
           ),
           items: _docTypes
-              .map((t) => DropdownMenuItem(
-                    value: t,
-                    child: Text(_docTypeLabel(t)),
-                  ))
+              .map(
+                (t) =>
+                    DropdownMenuItem(value: t, child: Text(_docTypeLabel(t))),
+              )
               .toList(),
-          onChanged: _uploading
-              ? null
-              : (v) => setState(() => _docType = v!),
+          onChanged: _uploading ? null : (v) => setState(() => _docType = v!),
         ),
-        
+
         if (_docType == 'UDYAM_CERTIFICATE') ...[
           const SizedBox(height: 8),
           Text(
             'Ensure Udyam Registration Number (URN) format UDYAM-XX-00-0000000 is clearly visible for automatic verification.',
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(color: AppColors.primary),
+            style: Theme.of(
+              context,
+            ).textTheme.bodySmall?.copyWith(color: AppColors.primary),
           ),
         ],
         if (_docType == 'GST_CERTIFICATE') ...[
           const SizedBox(height: 8),
           Text(
             'Ensure the 15-character GSTIN is visible. Both English and bilingual (Hindi/English) certificates are supported.',
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(color: AppColors.primary),
+            style: Theme.of(
+              context,
+            ).textTheme.bodySmall?.copyWith(color: AppColors.primary),
           ),
         ],
 
@@ -243,10 +249,7 @@ class _DocumentUploadScreenState
         const SizedBox(height: 8),
 
         if (_file == null)
-          _PickerPlaceholder(
-            onCamera: _pickCamera,
-            onFile: _pickFile,
-          )
+          _PickerPlaceholder(onCamera: _pickCamera, onFile: _pickFile)
         else
           _FilePreview(
             file: _file!,
@@ -263,8 +266,8 @@ class _DocumentUploadScreenState
             _progress < 0.05
                 ? 'Getting upload URL…'
                 : _progress < 1.0
-                    ? 'Uploading ${(_progress * 100).toStringAsFixed(0)}%…'
-                    : 'Saving record…',
+                ? 'Uploading ${(_progress * 100).toStringAsFixed(0)}%…'
+                : 'Saving record…',
             style: Theme.of(context).textTheme.bodySmall,
           ),
           const SizedBox(height: 16),
@@ -278,8 +281,10 @@ class _DocumentUploadScreenState
               color: AppColors.failed.withAlpha(20),
               borderRadius: BorderRadius.circular(8),
             ),
-            child: Text(_error!,
-                style: const TextStyle(color: AppColors.failed, fontSize: 13)),
+            child: Text(
+              _error!,
+              style: const TextStyle(color: AppColors.failed, fontSize: 13),
+            ),
           ),
           const SizedBox(height: 16),
         ],
@@ -294,7 +299,9 @@ class _DocumentUploadScreenState
                     height: 16,
                     width: 16,
                     child: CircularProgressIndicator(
-                        strokeWidth: 2, color: Colors.white),
+                      strokeWidth: 2,
+                      color: Colors.white,
+                    ),
                   )
                 : const Icon(Icons.cloud_upload_outlined),
             label: Text(_uploading ? 'Uploading…' : 'Upload Document'),
@@ -314,7 +321,9 @@ class _DocumentUploadScreenState
             '🔒 Your document is uploaded directly to secure cloud storage. '
             'The backend never receives your file bytes — only a reference key.',
             style: TextStyle(
-                fontSize: 12, color: AppColors.primary.withAlpha(200)),
+              fontSize: 12,
+              color: AppColors.primary.withAlpha(200),
+            ),
           ),
         ),
       ],
@@ -333,7 +342,9 @@ class _PickerPlaceholder extends StatelessWidget {
       height: 160,
       decoration: BoxDecoration(
         border: Border.all(
-            color: AppColors.primary.withAlpha(80), style: BorderStyle.solid),
+          color: AppColors.primary.withAlpha(80),
+          style: BorderStyle.solid,
+        ),
         borderRadius: BorderRadius.circular(12),
       ),
       child: Row(
@@ -363,8 +374,11 @@ class _PickOption extends StatelessWidget {
   final IconData icon;
   final String label;
   final VoidCallback onTap;
-  const _PickOption(
-      {required this.icon, required this.label, required this.onTap});
+  const _PickOption({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -376,11 +390,14 @@ class _PickOption extends StatelessWidget {
         children: [
           Icon(icon, size: 32, color: AppColors.primary),
           const SizedBox(height: 8),
-          Text(label,
-              style: const TextStyle(
-                  fontSize: 13,
-                  color: AppColors.primary,
-                  fontWeight: FontWeight.w500)),
+          Text(
+            label,
+            style: const TextStyle(
+              fontSize: 13,
+              color: AppColors.primary,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
         ],
       ),
     );
@@ -407,20 +424,23 @@ class _FilePreview extends StatelessWidget {
       child: Stack(
         children: [
           if (isImage)
-            Positioned.fill(
-              child: Image.file(file, fit: BoxFit.cover),
-            )
+            Positioned.fill(child: Image.file(file, fit: BoxFit.cover))
           else
             Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Icon(Icons.picture_as_pdf,
-                      size: 48, color: AppColors.primary),
+                  const Icon(
+                    Icons.picture_as_pdf,
+                    size: 48,
+                    color: AppColors.primary,
+                  ),
                   const SizedBox(height: 8),
-                  Text(p.basename(file.path),
-                      style: Theme.of(context).textTheme.bodySmall,
-                      textAlign: TextAlign.center),
+                  Text(
+                    p.basename(file.path),
+                    style: Theme.of(context).textTheme.bodySmall,
+                    textAlign: TextAlign.center,
+                  ),
                 ],
               ),
             ),
@@ -457,25 +477,28 @@ class _SuccessView extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.cloud_done_outlined,
-                size: 72, color: AppColors.verified),
+            const Icon(
+              Icons.cloud_done_outlined,
+              size: 72,
+              color: AppColors.verified,
+            ),
             const SizedBox(height: 16),
-            Text('Uploaded Successfully',
-                style: Theme.of(context).textTheme.headlineMedium),
+            Text(
+              'Uploaded Successfully',
+              style: Theme.of(context).textTheme.headlineMedium,
+            ),
             const SizedBox(height: 8),
             Text(
               'Your document is being processed by the OCR pipeline. '
               'Trust score will update once extraction is complete.',
               textAlign: TextAlign.center,
-              style: Theme.of(context)
-                  .textTheme
-                  .bodyMedium
-                  ?.copyWith(color: AppColors.textSecondary),
+              style: Theme.of(
+                context,
+              ).textTheme.bodyMedium?.copyWith(color: AppColors.textSecondary),
             ),
             const SizedBox(height: 32),
             ElevatedButton.icon(
-              onPressed: () =>
-                  context.pushReplacement('/kyc/status/$vendorId'),
+              onPressed: () => context.pushReplacement('/kyc/status/$vendorId'),
               icon: const Icon(Icons.list_alt_outlined),
               label: const Text('View Document Status'),
             ),

@@ -84,22 +84,17 @@ final appRouter = GoRouter(
     GoRoute(
       path: '/kyc/status/:vendorId',
       name: 'doc-status',
-      builder: (_, state) => DocumentStatusScreen(
-        vendorId: state.pathParameters['vendorId']!,
-      ),
+      builder: (_, state) =>
+          DocumentStatusScreen(vendorId: state.pathParameters['vendorId']!),
     ),
     GoRoute(
       path: '/trust/:vendorId',
       name: 'trust-score',
-      builder: (_, state) => TrustScoreScreen(
-        vendorId: state.pathParameters['vendorId']!,
-      ),
+      builder: (_, state) =>
+          TrustScoreScreen(vendorId: state.pathParameters['vendorId']!),
     ),
   ],
 
-  errorBuilder: (_, state) => Scaffold(
-    body: Center(
-      child: Text('Page not found: ${state.error}'),
-    ),
-  ),
+  errorBuilder: (_, state) =>
+      Scaffold(body: Center(child: Text('Page not found: ${state.error}'))),
 );

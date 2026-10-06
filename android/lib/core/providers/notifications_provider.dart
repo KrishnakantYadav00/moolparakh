@@ -24,7 +24,8 @@ class NotificationsNotifier extends AsyncNotifier<List<AppNotification>> {
   Future<void> markRead(String id) async {
     await ApiClient.instance.markNotificationRead(id);
     state = state.whenData(
-      (list) => list.map((n) => n.id == id ? n.copyWith(read: true) : n).toList(),
+      (list) =>
+          list.map((n) => n.id == id ? n.copyWith(read: true) : n).toList(),
     );
   }
 
@@ -38,13 +39,14 @@ class NotificationsNotifier extends AsyncNotifier<List<AppNotification>> {
 
 final notificationsProvider =
     AsyncNotifierProvider<NotificationsNotifier, List<AppNotification>>(
-  NotificationsNotifier.new,
-);
+      NotificationsNotifier.new,
+    );
 
 /// Unread count badge — used in the bottom nav bar.
 final unreadNotificationCountProvider = Provider<int>((ref) {
-  return ref.watch(notificationsProvider).whenData(
-            (list) => list.where((n) => !n.read).length,
-          ).valueOrNull ??
+  return ref
+          .watch(notificationsProvider)
+          .whenData((list) => list.where((n) => !n.read).length)
+          .valueOrNull ??
       0;
 });

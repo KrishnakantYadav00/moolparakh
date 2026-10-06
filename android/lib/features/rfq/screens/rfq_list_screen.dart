@@ -31,7 +31,9 @@ class RfqListScreen extends ConsumerWidget {
           ref.read(rfqListProvider.notifier).refresh();
         },
         child: CustomScrollView(
-          physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
+          physics: const BouncingScrollPhysics(
+            parent: AlwaysScrollableScrollPhysics(),
+          ),
           slivers: [
             SliverAppBar(
               expandedHeight: 120.0,
@@ -60,13 +62,18 @@ class RfqListScreen extends ConsumerWidget {
                 ),
               ),
             ),
-            
+
             allRfqsAsync.when(
               loading: () => const SliverToBoxAdapter(child: _RfqListShimmer()),
               error: (e, _) => SliverToBoxAdapter(
                 child: Padding(
                   padding: const EdgeInsets.all(32.0),
-                  child: Center(child: Text('Error: $e', style: const TextStyle(color: AppColors.failed))),
+                  child: Center(
+                    child: Text(
+                      'Error: $e',
+                      style: const TextStyle(color: AppColors.failed),
+                    ),
+                  ),
                 ),
               ),
               data: (all) => all.isEmpty
@@ -74,24 +81,21 @@ class RfqListScreen extends ConsumerWidget {
                   : SliverPadding(
                       padding: const EdgeInsets.all(16),
                       sliver: SliverList(
-                        delegate: SliverChildBuilderDelegate(
-                          (context, index) {
-                            return AnimationConfiguration.staggeredList(
-                              position: index,
-                              duration: const Duration(milliseconds: 375),
-                              child: SlideAnimation(
-                                verticalOffset: 50.0,
-                                child: FadeInAnimation(
-                                  child: Padding(
-                                    padding: const EdgeInsets.only(bottom: 12),
-                                    child: _RfqCard(rfq: all[index]),
-                                  ),
+                        delegate: SliverChildBuilderDelegate((context, index) {
+                          return AnimationConfiguration.staggeredList(
+                            position: index,
+                            duration: const Duration(milliseconds: 375),
+                            child: SlideAnimation(
+                              verticalOffset: 50.0,
+                              child: FadeInAnimation(
+                                child: Padding(
+                                  padding: const EdgeInsets.only(bottom: 12),
+                                  child: _RfqCard(rfq: all[index]),
                                 ),
                               ),
-                            );
-                          },
-                          childCount: all.length,
-                        ),
+                            ),
+                          );
+                        }, childCount: all.length),
                       ),
                     ),
             ),
@@ -137,7 +141,6 @@ class _RfqListShimmer extends StatelessWidget {
   }
 }
 
-
 class _RfqCard extends StatelessWidget {
   final Rfq rfq;
   const _RfqCard({required this.rfq});
@@ -163,10 +166,12 @@ class _RfqCard extends StatelessWidget {
                   Row(
                     children: [
                       Expanded(
-                        child: Text(rfq.title,
-                            style: Theme.of(context).textTheme.titleSmall,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis),
+                        child: Text(
+                          rfq.title,
+                          style: Theme.of(context).textTheme.titleSmall,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
                       ),
                       const SizedBox(width: 8),
                       StatusChip(
@@ -180,38 +185,47 @@ class _RfqCard extends StatelessWidget {
                   const SizedBox(height: 6),
                   Text(
                     rfq.reference,
-                    style: Theme.of(context)
-                        .textTheme
-                        .bodySmall
-                        ?.copyWith(color: AppColors.primary),
+                    style: Theme.of(
+                      context,
+                    ).textTheme.bodySmall?.copyWith(color: AppColors.primary),
                   ),
                   const SizedBox(height: 8),
-        
+
                   // Spec summary
                   Row(
                     children: [
                       _SpecPill(
-                          '${rfq.spec.quantity} ${rfq.spec.unit}',
-                          Icons.inventory_2_outlined),
+                        '${rfq.spec.quantity} ${rfq.spec.unit}',
+                        Icons.inventory_2_outlined,
+                      ),
                       const SizedBox(width: 8),
                       if (rfq.spec.item.isNotEmpty)
                         _SpecPill(rfq.spec.item, Icons.category_outlined),
                     ],
                   ),
                   const SizedBox(height: 8),
-        
+
                   // Footer row
                   Row(
                     children: [
                       if (rfq.isClosed)
-                        const Icon(Icons.lock_outline,
-                            size: 14, color: AppColors.textSecondary)
+                        const Icon(
+                          Icons.lock_outline,
+                          size: 14,
+                          color: AppColors.textSecondary,
+                        )
                       else if (isUrgent)
-                        const Icon(Icons.timer_outlined,
-                            size: 14, color: AppColors.riskHigh)
+                        const Icon(
+                          Icons.timer_outlined,
+                          size: 14,
+                          color: AppColors.riskHigh,
+                        )
                       else
-                        const Icon(Icons.schedule_outlined,
-                            size: 14, color: AppColors.textSecondary),
+                        const Icon(
+                          Icons.schedule_outlined,
+                          size: 14,
+                          color: AppColors.textSecondary,
+                        ),
                       const SizedBox(width: 4),
                       Expanded(
                         child: Text(
@@ -234,8 +248,11 @@ class _RfqCard extends StatelessWidget {
                         style: Theme.of(context).textTheme.bodySmall,
                       ),
                       const SizedBox(width: 4),
-                      const Icon(Icons.chevron_right,
-                          size: 16, color: AppColors.textSecondary),
+                      const Icon(
+                        Icons.chevron_right,
+                        size: 16,
+                        color: AppColors.textSecondary,
+                      ),
                     ],
                   ),
                 ],
@@ -276,9 +293,10 @@ class _SpecPill extends StatelessWidget {
           Text(
             text,
             style: const TextStyle(
-                fontSize: 11,
-                color: AppColors.primary,
-                fontWeight: FontWeight.w500),
+              fontSize: 11,
+              color: AppColors.primary,
+              fontWeight: FontWeight.w500,
+            ),
           ),
         ],
       ),
@@ -297,21 +315,24 @@ class _EmptyRfqState extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.request_quote_outlined,
-                size: 72,
-                color: AppColors.textSecondary.withAlpha(120)),
+            Icon(
+              Icons.request_quote_outlined,
+              size: 72,
+              color: AppColors.textSecondary.withAlpha(120),
+            ),
             const SizedBox(height: 16),
-            Text('No RFQs available',
-                style: Theme.of(context).textTheme.titleMedium),
+            Text(
+              'No RFQs available',
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
             const SizedBox(height: 8),
             Text(
               'New procurement requests will appear here. '
               'You\'ll receive a push notification when a buyer issues an RFQ.',
               textAlign: TextAlign.center,
-              style: Theme.of(context)
-                  .textTheme
-                  .bodyMedium
-                  ?.copyWith(color: AppColors.textSecondary),
+              style: Theme.of(
+                context,
+              ).textTheme.bodyMedium?.copyWith(color: AppColors.textSecondary),
             ),
           ],
         ),

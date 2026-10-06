@@ -10,7 +10,7 @@ import 'features/auth/screens/login_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  
+
   // Initialize date formatting for India locale
   await initializeDateFormatting('en_IN', null);
 
@@ -39,10 +39,11 @@ class MoolParakhApp extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     // If a session exists at startup, redirect to dashboard
     final vendorId = ref.read(currentVendorIdProvider);
-    if (vendorId != null && appRouter.routerDelegate.currentConfiguration.uri.path == '/login') {
-       WidgetsBinding.instance.addPostFrameCallback((_) {
-         appRouter.go('/home/dashboard');
-       });
+    if (vendorId != null &&
+        appRouter.routerDelegate.currentConfiguration.uri.path == '/login') {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        appRouter.go('/home/dashboard');
+      });
     }
 
     return MaterialApp.router(
