@@ -96,46 +96,106 @@ class _RfqDetailScreenState extends ConsumerState<RfqDetailScreen> {
     final weightsState = ref.watch(bidWeightsProvider);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('RFQ Detail')),
+      backgroundColor: AppColors.surface,
       body: rfqAsync.when(
-        loading: () => const _RfqDetailShimmer(),
-        error: (e, _) => Center(child: Text('Error: $e')),
-        data: (rfq) => ListView(
-          padding: const EdgeInsets.all(16),
-          children: [
-            Hero(
-              tag: 'rfq-card-${rfq.id}',
-              child: Material(
-                color: Colors.transparent,
-                child: _RfqHeaderCard(rfq: rfq),
+        loading: () => const Scaffold(body: _RfqDetailShimmer()),
+        error: (e, _) => Scaffold(
+          appBar: AppBar(title: const Text('RFQ Detail')),
+          body: Center(child: Text('Error: $e', style: const TextStyle(color: AppColors.failed))),
+        ),
+        data: (rfq) => CustomScrollView(
+          physics: const BouncingScrollPhysics(),
+          slivers: [
+            SliverAppBar(
+              expandedHeight: 180.0,
+              floating: false,
+              pinned: true,
+              elevation: 0,
+              backgroundColor: AppColors.primary,
+              iconTheme: const IconThemeData(color: Colors.white),
+              flexibleSpace: FlexibleSpaceBar(
+                titlePadding: const EdgeInsets.only(left: 48, bottom: 16, right: 16),
+                title: Text(
+                  rfq.reference,
+                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 16),
+                ),
+                background: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    Container(
+                      decoration: const BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [AppColors.primary, AppColors.primaryLight],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                      ),
+                    ),
+                    Positioned(
+                      right: -30,
+                      bottom: -30,
+                      child: Icon(
+                        Icons.request_quote_rounded,
+                        size: 150,
+                        color: Colors.white.withAlpha(20),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
-            const SizedBox(height: 16),
-            _SpecCard(rfq: rfq),
-            const SizedBox(height: 16),
+            
+            SliverPadding(
+              padding: const EdgeInsets.all(16),
+              sliver: SliverToBoxAdapter(
+                child: AnimationLimiter(
+                  child: Column(
+                    children: AnimationConfiguration.toStaggeredList(
+                      duration: const Duration(milliseconds: 375),
+                      childAnimationBuilder: (widget) => SlideAnimation(
+                        verticalOffset: 50.0,
+                        child: FadeInAnimation(child: widget),
+                      ),
+                      children: [
+                        Hero(
+                          tag: 'rfq-card-${rfq.id}',
+                          child: Material(
+                            color: Colors.transparent,
+                            child: _RfqHeaderCard(rfq: rfq),
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        _SpecCard(rfq: rfq),
+                        const SizedBox(height: 16),
 
-            // Show bid rankings only if there are bids
-            if (rfq.bids.isNotEmpty) ...[
-              _BidRankingCard(rfq: rfq, weights: weightsState),
-              const SizedBox(height: 16),
-            ],
+                        // Show bid rankings only if there are bids
+                        if (rfq.bids.isNotEmpty) ...[
+                          _BidRankingCard(rfq: rfq, weights: weightsState),
+                          const SizedBox(height: 16),
+                        ],
 
-            // Bid form — only for open RFQs
-            if (rfq.status.isOpen && !rfq.isClosed)
-              _submitted
-                  ? _BidSubmittedBanner()
-                  : _BidForm(
-                      rfq: rfq,
-                      formKey: _formKey,
-                      priceCtrl: _priceCtrl,
-                      daysCtrl: _daysCtrl,
-                      notesCtrl: _notesCtrl,
-                      submitting: _submitting,
-                      error: _submitError,
-                      onSubmit: () => _submitBid(rfq),
+                        // Bid form — only for open RFQs
+                        if (rfq.status.isOpen && !rfq.isClosed)
+                          _submitted
+                              ? _BidSubmittedBanner()
+                              : _BidForm(
+                                  rfq: rfq,
+                                  formKey: _formKey,
+                                  priceCtrl: _priceCtrl,
+                                  daysCtrl: _daysCtrl,
+                                  notesCtrl: _notesCtrl,
+                                  submitting: _submitting,
+                                  error: _submitError,
+                                  onSubmit: () => _submitBid(rfq),
+                                ),
+
+                        const SizedBox(height: 80),
+                      ],
                     ),
-
-            const SizedBox(height: 80),
+                  ),
+                ),
+              ),
+            ),
           ],
         ),
       ),

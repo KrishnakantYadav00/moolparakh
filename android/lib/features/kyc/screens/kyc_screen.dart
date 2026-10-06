@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:shimmer/shimmer.dart';
+import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
 import '../../../core/models/vendor.dart';
 import '../../../core/providers/vendors_provider.dart';
 import '../../../core/theme/app_theme.dart';
@@ -16,39 +18,83 @@ class KycScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final vendorId = ref.watch(currentVendorIdProvider);
 
-    if (vendorId == null) return const Center(child: Text('Not logged in'));
+    if (vendorId == null) return const Scaffold(body: Center(child: Text('Not logged in')));
 
     final vendorAsync = ref.watch(vendorDetailProvider(vendorId));
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('My KYC & Documents'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: () => ref.read(vendorDetailProvider(vendorId).notifier).refresh(),
-          ),
-        ],
-      ),
-      body: vendorAsync.when(
-        loading: () => const _KycShimmer(),
-        error: (e, _) => Center(child: Text('Error: $e')),
-        data: (vendor) => RefreshIndicator(
-          onRefresh: () async => ref.read(vendorDetailProvider(vendorId).notifier).refresh(),
-          child: ListView(
-            padding: const EdgeInsets.all(16),
-            children: [
-              _ProfileCard(vendor: vendor),
-              const SizedBox(height: 16),
-              _DocumentsSection(vendor: vendor),
-              const SizedBox(height: 24),
-            ],
-          ),
+      backgroundColor: AppColors.surface,
+      body: RefreshIndicator(
+        onRefresh: () async {
+          HapticFeedback.lightImpact();
+          ref.read(vendorDetailProvider(vendorId).notifier).refresh();
+        },
+        child: CustomScrollView(
+          physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
+          slivers: [
+            SliverAppBar(
+              expandedHeight: 120.0,
+              floating: true,
+              pinned: true,
+              elevation: 0,
+              backgroundColor: AppColors.primary,
+              flexibleSpace: FlexibleSpaceBar(
+                titlePadding: const EdgeInsets.only(left: 20, bottom: 16),
+                title: const Text(
+                  'My KYC & Documents',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w600,
+                    fontSize: 20,
+                  ),
+                ),
+                background: Container(
+                  decoration: const BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [AppColors.primary, AppColors.primaryLight],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            
+            vendorAsync.when(
+              loading: () => const SliverToBoxAdapter(child: _KycShimmer()),
+              error: (e, _) => SliverToBoxAdapter(child: Center(child: Text('Error: $e'))),
+              data: (vendor) => SliverPadding(
+                padding: const EdgeInsets.all(16),
+                sliver: SliverToBoxAdapter(
+                  child: AnimationLimiter(
+                    child: Column(
+                      children: AnimationConfiguration.toStaggeredList(
+                        duration: const Duration(milliseconds: 375),
+                        childAnimationBuilder: (widget) => SlideAnimation(
+                          verticalOffset: 50.0,
+                          child: FadeInAnimation(child: widget),
+                        ),
+                        children: [
+                          _ProfileCard(vendor: vendor),
+                          const SizedBox(height: 16),
+                          _DocumentsSection(vendor: vendor),
+                          const SizedBox(height: 80), // Padding for FAB
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
         ),
       ),
       floatingActionButton: vendorAsync.valueOrNull != null
           ? FloatingActionButton.extended(
-              onPressed: () => context.push('/kyc/upload'),
+              onPressed: () {
+                HapticFeedback.mediumImpact();
+                context.push('/kyc/upload');
+              },
               icon: const Icon(Icons.upload_file),
               label: const Text('Upload Document'),
             )

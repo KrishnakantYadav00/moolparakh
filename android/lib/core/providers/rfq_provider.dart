@@ -1,20 +1,49 @@
 // lib/core/providers/rfq_provider.dart
 
+import 'dart:convert';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../api/api_client.dart';
 import '../models/rfq.dart';
 
+const _rfqCacheKey = 'moolparakh_rfq_cache';
+
 class RfqListNotifier extends AsyncNotifier<List<Rfq>> {
   @override
-  Future<List<Rfq>> build() => _fetch();
+  Future<List<Rfq>> build() async {
+    // 1. Immediately yield cached data if available (0ms render time)
+    final prefs = await SharedPreferences.getInstance();
+    final cachedStr = prefs.getString(_rfqCacheKey);
+    
+    if (cachedStr != null) {
+      try {
+        final List<dynamic> rawList = jsonDecode(cachedStr);
+        final cachedRfqs = rawList.map((j) => Rfq.fromJson(j)).toList();
+        state = AsyncData(cachedRfqs);
+      } catch (_) {
+        // Cache corrupted, ignore
+      }
+    }
+
+    // 2. Fetch fresh data from network
+    return _fetch();
+  }
 
   Future<List<Rfq>> _fetch() async {
     final raw = await ApiClient.instance.listRfqs();
-    return raw.map((j) => Rfq.fromJson(j)).toList();
+    final rfqs = raw.map((j) => Rfq.fromJson(j)).toList();
+    
+    // Save to cache asynchronously
+    SharedPreferences.getInstance().then((prefs) {
+      prefs.setString(_rfqCacheKey, jsonEncode(raw));
+    });
+
+    return rfqs;
   }
 
   Future<void> refresh() async {
-    state = const AsyncLoading();
+    // We intentionally don't set AsyncLoading here so the UI doesn't jump to a shimmer state
+    // when pulling to refresh. It just shows the refresh indicator and keeps the current data.
     state = await AsyncValue.guard(_fetch);
   }
 }
