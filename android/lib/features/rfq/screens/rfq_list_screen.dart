@@ -9,6 +9,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
+import 'package:shimmer/shimmer.dart';
 import '../../../core/models/rfq.dart';
 import '../../../core/providers/rfq_provider.dart';
 import '../../../core/theme/app_theme.dart';
@@ -19,7 +20,6 @@ class RfqListScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final openRfqsAsync = ref.watch(openRfqsProvider);
     final allRfqsAsync = ref.watch(rfqListProvider);
 
     return Scaffold(
@@ -33,7 +33,7 @@ class RfqListScreen extends ConsumerWidget {
         ],
       ),
       body: allRfqsAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
+        loading: () => const _RfqListShimmer(),
         error: (e, _) => Center(child: Text('Error: $e')),
         data: (all) => RefreshIndicator(
           onRefresh: () async =>
@@ -52,6 +52,35 @@ class RfqListScreen extends ConsumerWidget {
   }
 }
 
+// ──────────────────────────────────────────────────────────────────────────────
+// Shimmer Loading States
+// ──────────────────────────────────────────────────────────────────────────────
+
+class _RfqListShimmer extends StatelessWidget {
+  const _RfqListShimmer();
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView.separated(
+      padding: const EdgeInsets.all(16),
+      itemCount: 5,
+      separatorBuilder: (_, __) => const SizedBox(height: 8),
+      itemBuilder: (_, __) => Shimmer.fromColors(
+        baseColor: AppColors.shimmer,
+        highlightColor: AppColors.shimmerHighlight,
+        child: Card(
+          child: Container(
+            height: 140,
+            width: double.infinity,
+            decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12)),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+
 class _RfqCard extends StatelessWidget {
   final Rfq rfq;
   const _RfqCard({required this.rfq});
@@ -61,94 +90,100 @@ class _RfqCard extends StatelessWidget {
     final remaining = rfq.closesAt.difference(DateTime.now());
     final isUrgent = remaining.inHours < 24 && !rfq.isClosed;
 
-    return Card(
-      child: InkWell(
-        borderRadius: BorderRadius.circular(12),
-        onTap: () => context.push('/rfq/${rfq.id}'),
-        child: Padding(
-          padding: const EdgeInsets.all(14),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
+    return Hero(
+      tag: 'rfq-card-${rfq.id}',
+      child: Material(
+        color: Colors.transparent,
+        child: Card(
+          child: InkWell(
+            borderRadius: BorderRadius.circular(12),
+            onTap: () => context.push('/rfq/${rfq.id}'),
+            child: Padding(
+              padding: const EdgeInsets.all(14),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Expanded(
-                    child: Text(rfq.title,
-                        style: Theme.of(context).textTheme.titleSmall,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis),
-                  ),
-                  const SizedBox(width: 8),
-                  StatusChip(
-                    label: rfq.status.label,
-                    color: rfq.status.isOpen
-                        ? AppColors.verified
-                        : AppColors.textSecondary,
-                  ),
-                ],
-              ),
-              const SizedBox(height: 6),
-              Text(
-                rfq.reference,
-                style: Theme.of(context)
-                    .textTheme
-                    .bodySmall
-                    ?.copyWith(color: AppColors.primary),
-              ),
-              const SizedBox(height: 8),
-
-              // Spec summary
-              Row(
-                children: [
-                  _SpecPill(
-                      '${rfq.spec.quantity} ${rfq.spec.unit}',
-                      Icons.inventory_2_outlined),
-                  const SizedBox(width: 8),
-                  if (rfq.spec.item.isNotEmpty)
-                    _SpecPill(rfq.spec.item, Icons.category_outlined),
-                ],
-              ),
-              const SizedBox(height: 8),
-
-              // Footer row
-              Row(
-                children: [
-                  if (rfq.isClosed)
-                    const Icon(Icons.lock_outline,
-                        size: 14, color: AppColors.textSecondary)
-                  else if (isUrgent)
-                    const Icon(Icons.timer_outlined,
-                        size: 14, color: AppColors.riskHigh)
-                  else
-                    const Icon(Icons.schedule_outlined,
-                        size: 14, color: AppColors.textSecondary),
-                  const SizedBox(width: 4),
-                  Expanded(
-                    child: Text(
-                      rfq.isClosed
-                          ? 'Closed'
-                          : 'Closes ${_formatRemaining(remaining)}',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: isUrgent && !rfq.isClosed
-                            ? AppColors.riskHigh
-                            : AppColors.textSecondary,
-                        fontWeight: isUrgent && !rfq.isClosed
-                            ? FontWeight.w600
-                            : FontWeight.w400,
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(rfq.title,
+                            style: Theme.of(context).textTheme.titleSmall,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis),
                       ),
-                    ),
+                      const SizedBox(width: 8),
+                      StatusChip(
+                        label: rfq.status.label,
+                        color: rfq.status.isOpen
+                            ? AppColors.verified
+                            : AppColors.textSecondary,
+                      ),
+                    ],
                   ),
+                  const SizedBox(height: 6),
                   Text(
-                    '${rfq.bids.length} bid${rfq.bids.length == 1 ? '' : 's'}',
-                    style: Theme.of(context).textTheme.bodySmall,
+                    rfq.reference,
+                    style: Theme.of(context)
+                        .textTheme
+                        .bodySmall
+                        ?.copyWith(color: AppColors.primary),
                   ),
-                  const SizedBox(width: 4),
-                  const Icon(Icons.chevron_right,
-                      size: 16, color: AppColors.textSecondary),
+                  const SizedBox(height: 8),
+        
+                  // Spec summary
+                  Row(
+                    children: [
+                      _SpecPill(
+                          '${rfq.spec.quantity} ${rfq.spec.unit}',
+                          Icons.inventory_2_outlined),
+                      const SizedBox(width: 8),
+                      if (rfq.spec.item.isNotEmpty)
+                        _SpecPill(rfq.spec.item, Icons.category_outlined),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+        
+                  // Footer row
+                  Row(
+                    children: [
+                      if (rfq.isClosed)
+                        const Icon(Icons.lock_outline,
+                            size: 14, color: AppColors.textSecondary)
+                      else if (isUrgent)
+                        const Icon(Icons.timer_outlined,
+                            size: 14, color: AppColors.riskHigh)
+                      else
+                        const Icon(Icons.schedule_outlined,
+                            size: 14, color: AppColors.textSecondary),
+                      const SizedBox(width: 4),
+                      Expanded(
+                        child: Text(
+                          rfq.isClosed
+                              ? 'Closed'
+                              : 'Closes ${_formatRemaining(remaining)}',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: isUrgent && !rfq.isClosed
+                                ? AppColors.riskHigh
+                                : AppColors.textSecondary,
+                            fontWeight: isUrgent && !rfq.isClosed
+                                ? FontWeight.w600
+                                : FontWeight.w400,
+                          ),
+                        ),
+                      ),
+                      Text(
+                        '${rfq.bids.length} bid${rfq.bids.length == 1 ? '' : 's'}',
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
+                      const SizedBox(width: 4),
+                      const Icon(Icons.chevron_right,
+                          size: 16, color: AppColors.textSecondary),
+                    ],
+                  ),
                 ],
               ),
-            ],
+            ),
           ),
         ),
       ),
@@ -214,7 +249,7 @@ class _EmptyRfqState extends StatelessWidget {
             const SizedBox(height: 8),
             Text(
               'New procurement requests will appear here. '
-              'You\'ll receive a notification when a buyer sends one.',
+              'You\'ll receive a push notification when a buyer issues an RFQ.',
               textAlign: TextAlign.center,
               style: Theme.of(context)
                   .textTheme

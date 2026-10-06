@@ -14,6 +14,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+import 'package:shimmer/shimmer.dart';
 import '../../../core/api/api_client.dart';
 import '../../../core/models/rfq.dart';
 import '../../../core/providers/rfq_provider.dart';
@@ -97,12 +98,18 @@ class _RfqDetailScreenState extends ConsumerState<RfqDetailScreen> {
     return Scaffold(
       appBar: AppBar(title: const Text('RFQ Detail')),
       body: rfqAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
+        loading: () => const _RfqDetailShimmer(),
         error: (e, _) => Center(child: Text('Error: $e')),
         data: (rfq) => ListView(
           padding: const EdgeInsets.all(16),
           children: [
-            _RfqHeaderCard(rfq: rfq),
+            Hero(
+              tag: 'rfq-card-${rfq.id}',
+              child: Material(
+                color: Colors.transparent,
+                child: _RfqHeaderCard(rfq: rfq),
+              ),
+            ),
             const SizedBox(height: 16),
             _SpecCard(rfq: rfq),
             const SizedBox(height: 16),
@@ -135,6 +142,47 @@ class _RfqDetailScreenState extends ConsumerState<RfqDetailScreen> {
     );
   }
 }
+
+// ──────────────────────────────────────────────────────────────────────────────
+// Shimmer Loading States
+// ──────────────────────────────────────────────────────────────────────────────
+
+class _RfqDetailShimmer extends StatelessWidget {
+  const _RfqDetailShimmer();
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView(
+      padding: const EdgeInsets.all(16),
+      children: [
+        Shimmer.fromColors(
+          baseColor: AppColors.shimmer,
+          highlightColor: AppColors.shimmerHighlight,
+          child: Card(
+            child: Container(
+              height: 120,
+              width: double.infinity,
+              decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12)),
+            ),
+          ),
+        ),
+        const SizedBox(height: 16),
+        Shimmer.fromColors(
+          baseColor: AppColors.shimmer,
+          highlightColor: AppColors.shimmerHighlight,
+          child: Card(
+            child: Container(
+              height: 250,
+              width: double.infinity,
+              decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12)),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
 
 // ──────────────────────────────────────────────────────────────────────────────
 // RFQ header card

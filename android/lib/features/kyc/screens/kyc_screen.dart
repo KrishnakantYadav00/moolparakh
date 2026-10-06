@@ -1,21 +1,12 @@
-// lib/features/kyc/screens/kyc_screen.dart
-//
-// KYC tab — supplier's own compliance profile.
-// Shows documents list, upload button, and deep-links to document status.
-//
-// PRD §14.3 — API contract:
-//   GET  /api/documents/{vendorId}     → list documents (owned by P4, via P1)
-//   POST /api/documents/presign        → step 1 of upload flow
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
+import 'package:shimmer/shimmer.dart';
 import '../../../core/models/vendor.dart';
 import '../../../core/providers/vendors_provider.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../shared/widgets/status_chip.dart';
-import '../../../shared/widgets/trust_score_badge.dart';
 import '../../auth/screens/login_screen.dart';
 
 class KycScreen extends ConsumerWidget {
@@ -24,246 +15,156 @@ class KycScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final vendorId = ref.watch(currentVendorIdProvider);
-    if (vendorId == null) {
-      return const Center(child: Text('Not logged in'));
-    }
+
+    if (vendorId == null) return const Center(child: Text('Not logged in'));
 
     final vendorAsync = ref.watch(vendorDetailProvider(vendorId));
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('My KYC'),
+        title: const Text('My KYC & Documents'),
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
-            onPressed: () =>
-                ref.read(vendorDetailProvider(vendorId).notifier).refresh(),
+            onPressed: () => ref.read(vendorDetailProvider(vendorId).notifier).refresh(),
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => context.push('/kyc/upload?vendorId=$vendorId'),
-        icon: const Icon(Icons.upload_file),
-        label: const Text('Upload Document'),
-        backgroundColor: AppColors.primary,
-        foregroundColor: Colors.white,
-      ),
       body: vendorAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
+        loading: () => const _KycShimmer(),
         error: (e, _) => Center(child: Text('Error: $e')),
         data: (vendor) => RefreshIndicator(
-          onRefresh: () async {
-            ref
-                .read(vendorDetailProvider(vendorId).notifier)
-                .refresh();
-          },
+          onRefresh: () async => ref.read(vendorDetailProvider(vendorId).notifier).refresh(),
           child: ListView(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 100),
+            padding: const EdgeInsets.all(16),
             children: [
-              _ProfileHeader(vendor: vendor),
+              _ProfileCard(vendor: vendor),
               const SizedBox(height: 16),
-              _VerificationSection(vendor: vendor),
-              const SizedBox(height: 16),
-              _DocumentsSection(vendor: vendor, vendorId: vendorId),
+              _DocumentsSection(vendor: vendor),
+              const SizedBox(height: 24),
             ],
           ),
         ),
       ),
+      floatingActionButton: vendorAsync.valueOrNull != null
+          ? FloatingActionButton.extended(
+              onPressed: () => context.push('/kyc/upload'),
+              icon: const Icon(Icons.upload_file),
+              label: const Text('Upload Document'),
+            )
+          : null,
     );
   }
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
-// Profile header
+// Shimmer Loading States
 // ──────────────────────────────────────────────────────────────────────────────
 
-class _ProfileHeader extends StatelessWidget {
-  final Vendor vendor;
-  const _ProfileHeader({required this.vendor});
+class _KycShimmer extends StatelessWidget {
+  const _KycShimmer();
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                CircleAvatar(
-                  backgroundColor: AppColors.primary,
-                  radius: 24,
-                  child: Text(
-                    vendor.displayName.isNotEmpty
-                        ? vendor.displayName[0].toUpperCase()
-                        : '?',
-                    style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(vendor.displayName,
-                          style: Theme.of(context).textTheme.titleMedium,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis),
-                      if (vendor.tradeName != null &&
-                          vendor.tradeName != vendor.legalName)
-                        Text(vendor.legalName,
-                            style: Theme.of(context).textTheme.bodySmall),
-                    ],
-                  ),
-                ),
-                TrustScoreBadge(
-                  score: vendor.trustScore?.overallScore ?? 0,
-                  size: 52,
-                  strokeWidth: 5,
-                ),
-              ],
+    return ListView(
+      padding: const EdgeInsets.all(16),
+      children: [
+        Shimmer.fromColors(
+          baseColor: AppColors.shimmer,
+          highlightColor: AppColors.shimmerHighlight,
+          child: Card(
+            child: Container(
+              height: 200,
+              width: double.infinity,
+              decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12)),
             ),
-            const Divider(height: 24),
-            _InfoRow(Icons.location_city_outlined,
-                '${vendor.city}, ${vendor.state}'),
-            _InfoRow(Icons.email_outlined, vendor.email),
-            _InfoRow(Icons.phone_outlined, vendor.phone),
-            _InfoRow(Icons.badge_outlined,
-                '${vendor.msmeCategory.label} MSME'),
-            if (vendor.gstin != null)
-              _InfoRow(Icons.business_outlined, 'GSTIN: ${vendor.gstin}'),
-            if (vendor.udyamNumber != null)
-              _InfoRow(
-                  Icons.verified_outlined, 'Udyam: ${vendor.udyamNumber}'),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _InfoRow extends StatelessWidget {
-  final IconData icon;
-  final String text;
-  const _InfoRow(this.icon, this.text);
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 6),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(icon, size: 14, color: AppColors.textSecondary),
-          const SizedBox(width: 6),
-          Expanded(
-            child: Text(text, style: Theme.of(context).textTheme.bodySmall),
           ),
-        ],
-      ),
-    );
-  }
-}
-
-// ──────────────────────────────────────────────────────────────────────────────
-// Verification section
-// ──────────────────────────────────────────────────────────────────────────────
-
-class _VerificationSection extends StatelessWidget {
-  final Vendor vendor;
-  const _VerificationSection({required this.vendor});
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Government Verifications',
-                style: Theme.of(context).textTheme.titleSmall),
-            const SizedBox(height: 12),
-            ...VerificationType.values.map((type) {
-              final rec = vendor.verifications
-                  .where((v) => v.type == type)
-                  .firstOrNull;
-              return _VerifRow(type: type, record: rec);
-            }),
-          ],
         ),
-      ),
-    );
-  }
-}
-
-class _VerifRow extends StatelessWidget {
-  final VerificationType type;
-  final VerificationRecord? record;
-  const _VerifRow({required this.type, this.record});
-
-  @override
-  Widget build(BuildContext context) {
-    final status = record?.status.name.toUpperCase() ?? 'PENDING';
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
-      child: Row(
-        children: [
-          Expanded(
-              child: Text(type.label,
-                  style: Theme.of(context).textTheme.bodyMedium)),
-          StatusChip.verification(status),
-          if (record?.verifiedAt != null) ...[
-            const SizedBox(width: 8),
-            Text(
-              DateFormat('dd MMM yy').format(record!.verifiedAt!),
-              style: Theme.of(context).textTheme.bodySmall,
+        const SizedBox(height: 16),
+        Shimmer.fromColors(
+          baseColor: AppColors.shimmer,
+          highlightColor: AppColors.shimmerHighlight,
+          child: Container(
+            height: 24,
+            width: 150,
+            color: Colors.white,
+          ),
+        ),
+        const SizedBox(height: 16),
+        ...List.generate(3, (index) => Padding(
+          padding: const EdgeInsets.only(bottom: 12),
+          child: Shimmer.fromColors(
+            baseColor: AppColors.shimmer,
+            highlightColor: AppColors.shimmerHighlight,
+            child: Card(
+              child: Container(
+                height: 100,
+                width: double.infinity,
+                decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12)),
+              ),
             ),
-          ],
-        ],
-      ),
+          ),
+        )),
+      ],
     );
   }
 }
 
-// ──────────────────────────────────────────────────────────────────────────────
-// Documents section
-// ──────────────────────────────────────────────────────────────────────────────
 
-class _DocumentsSection extends StatelessWidget {
+class _ProfileCard extends StatelessWidget {
   final Vendor vendor;
-  final String vendorId;
-  const _DocumentsSection(
-      {required this.vendor, required this.vendorId});
+  const _ProfileCard({required this.vendor});
 
   @override
   Widget build(BuildContext context) {
-    final docs = vendor.documents;
-
     return Card(
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(20),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
               children: [
-                Text('Uploaded Documents',
-                    style: Theme.of(context).textTheme.titleSmall),
-                const Spacer(),
-                Text('${docs.length} file${docs.length == 1 ? '' : 's'}',
-                    style: Theme.of(context).textTheme.bodySmall),
+                Expanded(
+                  child: Text(vendor.legalName,
+                      style: Theme.of(context).textTheme.titleMedium),
+                ),
+                StatusChip.vendorStatus(vendor.status.name.toUpperCase()),
               ],
             ),
+            if (vendor.tradeName != null && vendor.tradeName!.isNotEmpty) ...[
+              const SizedBox(height: 4),
+              Text('T/A: ${vendor.tradeName}',
+                  style: Theme.of(context).textTheme.bodySmall),
+            ],
+            const SizedBox(height: 16),
+            const Divider(),
             const SizedBox(height: 12),
-            if (docs.isEmpty)
-              const _EmptyDocState()
-            else
-              ...docs.map((d) => _DocumentTile(doc: d, vendorId: vendorId)),
+            if (vendor.pan != null) _DataRow('PAN', vendor.pan!),
+            if (vendor.gstin != null) _DataRow('GSTIN', vendor.gstin!),
+            if (vendor.udyamNumber != null) _DataRow('UDYAM', vendor.udyamNumber!),
+            _DataRow('Email', vendor.email),
+            _DataRow('Phone', vendor.phone),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: AppColors.primary.withAlpha(15),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.info_outline, size: 16, color: AppColors.primary),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'To update core details, please upload a new authoritative document (GST or Udyam).',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(color: AppColors.primary),
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ],
         ),
       ),
@@ -271,94 +172,164 @@ class _DocumentsSection extends StatelessWidget {
   }
 }
 
-class _DocumentTile extends StatelessWidget {
-  final VendorDocument doc;
-  final String vendorId;
-  const _DocumentTile({required this.doc, required this.vendorId});
+class _DataRow extends StatelessWidget {
+  final String label;
+  final String value;
+  const _DataRow(this.label, this.value);
 
   @override
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(8),
-        onTap: () => context.push('/kyc/status/$vendorId'),
-        child: Container(
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            border: Border.all(color: AppColors.divider),
-            borderRadius: BorderRadius.circular(8),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 80,
+            child: Text(label, style: Theme.of(context).textTheme.bodySmall),
           ),
-          child: Row(
-            children: [
-              const Icon(Icons.description_outlined,
-                  size: 20, color: AppColors.primary),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      doc.type.replaceAll('_', ' '),
-                      style: const TextStyle(
-                          fontSize: 13, fontWeight: FontWeight.w500),
-                    ),
-                    if (doc.expirationDate != null)
-                      Text(
-                        'Expires: ${DateFormat('dd MMM yyyy').format(doc.expirationDate!)}',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: doc.isExpired
-                              ? AppColors.failed
-                              : doc.isExpiringSoon
-                                  ? AppColors.pending
-                                  : AppColors.textSecondary,
-                        ),
-                      ),
-                    if (doc.confidence != null && doc.confidence! > 0)
-                      Text(
-                        'OCR confidence: ${(doc.confidence! * 100).toStringAsFixed(0)}%',
-                        style: Theme.of(context).textTheme.bodySmall,
-                      ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 8),
-              StatusChip.documentStatus(doc.status.name.toUpperCase()),
-            ],
+          Expanded(
+            child: Text(value,
+                style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 13)),
           ),
-        ),
+        ],
       ),
     );
   }
 }
 
-class _EmptyDocState extends StatelessWidget {
-  const _EmptyDocState();
+class _DocumentsSection extends StatelessWidget {
+  final Vendor vendor;
+  const _DocumentsSection({required this.vendor});
 
   @override
   Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 24),
-        child: Column(
+    final docs = vendor.documents;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Icon(Icons.upload_file_outlined,
-                size: 48, color: AppColors.textSecondary.withAlpha(120)),
+            Text('Uploaded Documents',
+                style: Theme.of(context).textTheme.titleSmall),
+            if (docs.any((d) => d.status.isProcessing))
+              TextButton.icon(
+                onPressed: () => context.push('/kyc/status/${vendor.id}'),
+                icon: const Icon(Icons.analytics_outlined, size: 16),
+                label: const Text('View OCR Status'),
+              ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        if (docs.isEmpty)
+          const _EmptyDocsState()
+        else
+          ...docs.map((d) => _DocTile(doc: d)),
+      ],
+    );
+  }
+}
+
+class _EmptyDocsState extends StatelessWidget {
+  const _EmptyDocsState();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(32),
+      decoration: BoxDecoration(
+        color: AppColors.surfaceCard,
+        border: Border.all(color: AppColors.divider, style: BorderStyle.dash),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        children: [
+          const Icon(Icons.drive_folder_upload,
+              size: 48, color: AppColors.textSecondary),
+          const SizedBox(height: 16),
+          Text('No documents uploaded',
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600)),
+          const SizedBox(height: 8),
+          Text(
+            'Upload your Udyam (MSME) or GSTIN certificates to start the automated KYC process.',
+            textAlign: TextAlign.center,
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DocTile extends StatelessWidget {
+  final VendorDocument doc;
+  const _DocTile({required this.doc});
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      margin: const EdgeInsets.only(bottom: 10),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    doc.type.replaceAll('_', ' '),
+                    style: const TextStyle(
+                        fontSize: 14, fontWeight: FontWeight.w600),
+                  ),
+                ),
+                StatusChip.documentStatus(doc.status.name.toUpperCase()),
+              ],
+            ),
             const SizedBox(height: 8),
-            Text(
-              'No documents uploaded yet',
-              style: Theme.of(context)
-                  .textTheme
-                  .bodyMedium
-                  ?.copyWith(color: AppColors.textSecondary),
+            Row(
+              children: [
+                Icon(
+                  doc.status == DocumentStatus.parsed ? Icons.check_circle_outline : Icons.schedule,
+                  size: 14,
+                  color: AppColors.textSecondary,
+                ),
+                const SizedBox(width: 4),
+                Text(
+                  'Uploaded ${DateFormat('dd MMM yyyy').format(doc.uploadedAt)}',
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+              ],
             ),
-            const SizedBox(height: 4),
-            Text(
-              'Tap + to upload GST, Udyam, or other certificates',
-              style: Theme.of(context).textTheme.bodySmall,
-              textAlign: TextAlign.center,
-            ),
+            if (doc.certificateNumber != null) ...[
+              const SizedBox(height: 6),
+              Text(
+                'No: ${doc.certificateNumber}',
+                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+              ),
+            ],
+            if (doc.isExpired || doc.isExpiringSoon) ...[
+              const SizedBox(height: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: doc.isExpired
+                      ? AppColors.failed.withAlpha(20)
+                      : AppColors.pending.withAlpha(20),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Text(
+                  doc.isExpired ? 'Expired Document' : 'Expiring Soon',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: doc.isExpired ? AppColors.failed : AppColors.pending,
+                  ),
+                ),
+              ),
+            ],
           ],
         ),
       ),
