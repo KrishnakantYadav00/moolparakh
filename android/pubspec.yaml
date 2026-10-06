@@ -1,0 +1,84 @@
+name: moolparakh_supplier
+description: "MoolParakh Supplier App — Section 43B(h)-aware KYC, Trust Score & RFQ for Indian MSME procurement."
+publish_to: 'none'
+
+# P3 (Android) — Flutter supplier-side app
+# Talks to the backend at /api/* (see backend/src/server.ts)
+# Key PRD refs: Section 5.7 (Android domain), 14.3 (API contract), 14.4 (mock server)
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.11.3
+
+# Dependencies specify other packages that your package needs in order to work.
+# To automatically upgrade your package dependencies to the latest versions
+# consider running `flutter pub upgrade --major-versions`. Alternatively,
+# dependencies can be manually updated by changing the version numbers below to
+# the latest version available on pub.dev. To see which dependencies have newer
+# versions available, run `flutter pub outdated`.
+dependencies:
+  flutter:
+    sdk: flutter
+
+  cupertino_icons: ^1.0.8
+
+  # HTTP client — PRD ref §5.7 (Android domain notes)
+  # "Dio: Upload progress stream via DioAdapter; retry interceptor; cleaner error handling"
+  dio: ^5.8.0+1
+  pretty_dio_logger: ^1.4.0
+
+  # State management — Riverpod chosen over Provider/GetX per PRD §5.7
+  # "compile-safe, does not depend on widget tree, easy to test"
+  flutter_riverpod: ^2.6.1
+  riverpod_annotation: ^2.6.1
+
+  # Secure token storage — uses Android Keystore (hardware-backed on Android 6+)
+  # PRD §5.7: "do NOT use SharedPreferences — stores in plaintext XML"
+  flutter_secure_storage: ^9.2.4
+
+  # Camera & document capture — PRD §5.7 table
+  image_picker: ^1.1.2
+  file_picker: ^8.1.7
+
+  # Navigation
+  go_router: ^14.6.2
+
+  # UI & fonts
+  google_fonts: ^6.2.1
+  cached_network_image: ^3.4.1
+
+  # Charts — trust score sparkline + compliance timeline
+  fl_chart: ^0.69.0
+
+  # Date / formatting
+  intl: ^0.19.0
+
+  # Local notifications (FCM foreground handling)
+  flutter_local_notifications: ^18.0.1
+
+  # Misc utilities
+  equatable: ^2.0.7
+  shared_preferences: ^2.3.3  # non-sensitive prefs only (base URL, theme)
+  url_launcher: ^6.3.1
+  permission_handler: ^11.4.0
+  uuid: ^4.5.1
+  path: ^1.9.0
+  path_provider: ^2.1.4
+  connectivity_plus: ^6.1.1
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+  build_runner: ^2.4.13
+  riverpod_generator: ^2.6.2
+  custom_lint: ^0.7.5
+  riverpod_lint: ^2.6.2
+
+flutter:
+  uses-material-design: true
+
+  assets:
+    - assets/images/
+    - assets/icons/
+
