@@ -6,10 +6,11 @@
 //   trade fairs or on factory floors — they cannot sit at a desktop portal."
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:intl/intl.dart';
 import 'package:shimmer/shimmer.dart';
+import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
 import '../../../core/models/rfq.dart';
 import '../../../core/providers/rfq_provider.dart';
 import '../../../core/theme/app_theme.dart';
@@ -23,29 +24,78 @@ class RfqListScreen extends ConsumerWidget {
     final allRfqsAsync = ref.watch(rfqListProvider);
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('RFQs'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: () => ref.read(rfqListProvider.notifier).refresh(),
-          ),
-        ],
-      ),
-      body: allRfqsAsync.when(
-        loading: () => const _RfqListShimmer(),
-        error: (e, _) => Center(child: Text('Error: $e')),
-        data: (all) => RefreshIndicator(
-          onRefresh: () async =>
-              ref.read(rfqListProvider.notifier).refresh(),
-          child: all.isEmpty
-              ? const _EmptyRfqState()
-              : ListView.separated(
-                  padding: const EdgeInsets.all(16),
-                  itemCount: all.length,
-                  separatorBuilder: (_, __) => const SizedBox(height: 8),
-                  itemBuilder: (_, i) => _RfqCard(rfq: all[i]),
+      backgroundColor: AppColors.surface,
+      body: RefreshIndicator(
+        onRefresh: () async {
+          HapticFeedback.lightImpact();
+          ref.read(rfqListProvider.notifier).refresh();
+        },
+        child: CustomScrollView(
+          physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
+          slivers: [
+            SliverAppBar(
+              expandedHeight: 120.0,
+              floating: true,
+              pinned: true,
+              elevation: 0,
+              backgroundColor: AppColors.primary,
+              flexibleSpace: FlexibleSpaceBar(
+                titlePadding: const EdgeInsets.only(left: 20, bottom: 16),
+                title: const Text(
+                  'Procurement Bids',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w600,
+                    fontSize: 20,
+                  ),
                 ),
+                background: Container(
+                  decoration: const BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [AppColors.primary, AppColors.primaryLight],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            
+            allRfqsAsync.when(
+              loading: () => const SliverToBoxAdapter(child: _RfqListShimmer()),
+              error: (e, _) => SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.all(32.0),
+                  child: Center(child: Text('Error: $e', style: const TextStyle(color: AppColors.failed))),
+                ),
+              ),
+              data: (all) => all.isEmpty
+                  ? const SliverFillRemaining(child: _EmptyRfqState())
+                  : SliverPadding(
+                      padding: const EdgeInsets.all(16),
+                      sliver: SliverList(
+                        delegate: SliverChildBuilderDelegate(
+                          (context, index) {
+                            return AnimationConfiguration.staggeredList(
+                              position: index,
+                              duration: const Duration(milliseconds: 375),
+                              child: SlideAnimation(
+                                verticalOffset: 50.0,
+                                child: FadeInAnimation(
+                                  child: Padding(
+                                    padding: const EdgeInsets.only(bottom: 12),
+                                    child: _RfqCard(rfq: all[index]),
+                                  ),
+                                ),
+                              ),
+                            );
+                          },
+                          childCount: all.length,
+                        ),
+                      ),
+                    ),
+            ),
+          ],
         ),
       ),
     );
@@ -61,18 +111,25 @@ class _RfqListShimmer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ListView.separated(
+    return Padding(
       padding: const EdgeInsets.all(16),
-      itemCount: 5,
-      separatorBuilder: (_, __) => const SizedBox(height: 8),
-      itemBuilder: (_, __) => Shimmer.fromColors(
-        baseColor: AppColors.shimmer,
-        highlightColor: AppColors.shimmerHighlight,
-        child: Card(
-          child: Container(
-            height: 140,
-            width: double.infinity,
-            decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12)),
+      child: Column(
+        children: List.generate(
+          5,
+          (index) => Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: Shimmer.fromColors(
+              baseColor: AppColors.shimmer,
+              highlightColor: AppColors.shimmerHighlight,
+              child: Container(
+                height: 140,
+                width: double.infinity,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                ),
+              ),
+            ),
           ),
         ),
       ),
