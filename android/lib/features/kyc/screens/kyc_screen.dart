@@ -2,33 +2,34 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:intl/intl.dart';
-import 'package:shimmer/shimmer.dart';
 import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
-import '../../../core/models/vendor.dart';
-import '../../../core/providers/vendors_provider.dart';
-import '../../../core/theme/app_theme.dart';
-import '../../../shared/widgets/status_chip.dart';
-import '../../auth/screens/login_screen.dart';
 
-class KycScreen extends ConsumerWidget {
+import '../../../shared/widgets/main_shell.dart';
+import '../../../core/models/vendor.dart';
+import '../../../core/providers/vendors_list_provider.dart';
+import '../../../core/theme/app_theme.dart';
+
+class KycScreen extends ConsumerStatefulWidget {
   const KycScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final vendorId = ref.watch(currentVendorIdProvider);
+  ConsumerState<KycScreen> createState() => _KycScreenState();
+}
 
-    if (vendorId == null)
-      return const Scaffold(body: Center(child: Text('Not logged in')));
+class _KycScreenState extends ConsumerState<KycScreen> {
+  String _selectedView = 'Calendar';
+  final List<String> _views = ['Calendar', 'Upcoming', 'Expired'];
 
-    final vendorAsync = ref.watch(vendorDetailProvider(vendorId));
+  @override
+  Widget build(BuildContext context) {
+    final vendorsAsync = ref.watch(vendorsListProvider);
 
     return Scaffold(
       backgroundColor: AppColors.surface,
       body: RefreshIndicator(
         onRefresh: () async {
           HapticFeedback.lightImpact();
-          ref.read(vendorDetailProvider(vendorId).notifier).refresh();
+          ref.invalidate(vendorsListProvider);
         },
         child: CustomScrollView(
           physics: const BouncingScrollPhysics(
@@ -36,386 +37,239 @@ class KycScreen extends ConsumerWidget {
           ),
           slivers: [
             SliverAppBar(
-              expandedHeight: 120.0,
               floating: true,
               pinned: true,
               elevation: 0,
-              backgroundColor: AppColors.primary,
-              flexibleSpace: FlexibleSpaceBar(
-                titlePadding: const EdgeInsets.only(left: 20, bottom: 16),
-                title: const Text(
-                  'My KYC & Documents',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w600,
-                    fontSize: 20,
-                  ),
-                ),
-                background: Container(
-                  decoration: const BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [AppColors.primary, AppColors.primaryLight],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                  ),
+              backgroundColor: AppColors.surface,
+              iconTheme: const IconThemeData(color: AppColors.textPrimary),
+              leading: IconButton(
+                icon: const Icon(Icons.menu),
+                onPressed: () {
+                  mainShellScaffoldKey.currentState?.openDrawer();
+                },
+              ),
+              title: const Text(
+                'Compliance',
+                style: TextStyle(
+                  color: AppColors.textPrimary,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 22,
+                  letterSpacing: -0.5,
                 ),
               ),
             ),
-
-            vendorAsync.when(
-              loading: () => const SliverToBoxAdapter(child: _KycShimmer()),
-              error: (e, _) =>
-                  SliverToBoxAdapter(child: Center(child: Text('Error: $e'))),
-              data: (vendor) => SliverPadding(
-                padding: const EdgeInsets.all(16),
-                sliver: SliverToBoxAdapter(
-                  child: AnimationLimiter(
-                    child: Column(
-                      children: AnimationConfiguration.toStaggeredList(
-                        duration: const Duration(milliseconds: 375),
-                        childAnimationBuilder: (widget) => SlideAnimation(
-                          verticalOffset: 50.0,
-                          child: FadeInAnimation(child: widget),
-                        ),
-                        children: [
-                          _ProfileCard(vendor: vendor),
-                          const SizedBox(height: 16),
-                          _DocumentsSection(vendor: vendor),
-                          const SizedBox(height: 80), // Padding for FAB
-                        ],
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(20, 4, 20, 16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Stay ahead of vendor certification expiry.',
+                      style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
+                    ),
+                    const SizedBox(height: 16),
+                    SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: Row(
+                        children: _views.map((view) {
+                          final isSelected = _selectedView == view;
+                          return Padding(
+                            padding: const EdgeInsets.only(right: 8.0),
+                            child: ChoiceChip(
+                              label: Text(view, style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                                color: isSelected ? Colors.white : AppColors.textSecondary,
+                              )),
+                              selected: isSelected,
+                              selectedColor: AppColors.primary,
+                              backgroundColor: const Color(0xFFF5F5F5),
+                              showCheckmark: false,
+                              onSelected: (selected) {
+                                if (selected) setState(() => _selectedView = view);
+                              },
+                            ),
+                          );
+                        }).toList(),
                       ),
                     ),
-                  ),
+                  ],
                 ),
               ),
             ),
-          ],
-        ),
-      ),
-      floatingActionButton: vendorAsync.valueOrNull != null
-          ? FloatingActionButton.extended(
-              onPressed: () {
-                HapticFeedback.mediumImpact();
-                context.push('/kyc/upload');
+            vendorsAsync.when(
+              loading: () => const SliverFillRemaining(
+                child: Center(child: CircularProgressIndicator()),
+              ),
+              error: (e, _) => SliverFillRemaining(
+                child: Center(
+                  child: Text('Failed to load compliance data: $e', style: const TextStyle(color: AppColors.failed)),
+                ),
+              ),
+              data: (vendors) {
+                // Flatten all documents
+                final List<_DocRow> allDocs = [];
+                for (final v in vendors) {
+                  for (final d in v.documents) {
+                    if (d.expirationDate != null) {
+                      allDocs.add(_DocRow(vendor: v, doc: d));
+                    }
+                  }
+                }
+
+                allDocs.sort((a, b) => a.doc.expirationDate!.compareTo(b.doc.expirationDate!));
+                final now = DateTime.now();
+                final upcoming = allDocs.where((r) => r.doc.expirationDate!.isAfter(now)).toList();
+                final expired = allDocs.where((r) => r.doc.expirationDate!.isBefore(now)).toList();
+
+                return SliverPadding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  sliver: SliverList(
+                    delegate: SliverChildBuilderDelegate(
+                      (context, index) {
+                        if (index == 0) {
+                          return _buildAttentionCard(expired, upcoming);
+                        }
+                        
+                        final actualIndex = index - 1;
+                        List<_DocRow> listToUse = [];
+                        if (_selectedView == 'Upcoming' || _selectedView == 'Calendar') listToUse = upcoming;
+                        else if (_selectedView == 'Expired') listToUse = expired;
+
+                        if (actualIndex >= listToUse.length) return const SizedBox.shrink();
+
+                        final row = listToUse[actualIndex];
+                        final days = row.doc.expirationDate!.difference(now).inDays;
+                        
+                        Color badgeColor = days < 0 ? AppColors.failed : (days < 30 ? Colors.orange : (days < 60 ? const Color(0xFFF57F17) : AppColors.verified));
+                        String badgeText = days < 0 ? 'Expired' : (days < 30 ? '< 30d' : (days < 60 ? '< 60d' : 'Valid'));
+
+                        return Card(
+                          margin: const EdgeInsets.only(bottom: 12),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            side: const BorderSide(color: Color(0xFFEEEEEE)),
+                          ),
+                          elevation: 0,
+                          child: Padding(
+                            padding: const EdgeInsets.all(16),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text(row.vendor.legalName, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15)),
+                                          const SizedBox(height: 4),
+                                          Text(row.doc.type, style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+                                        ],
+                                      ),
+                                    ),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                      decoration: BoxDecoration(
+                                        color: badgeColor.withAlpha(20),
+                                        borderRadius: BorderRadius.circular(6),
+                                      ),
+                                      child: Text(
+                                        badgeText,
+                                        style: TextStyle(
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.w700,
+                                          color: badgeColor,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 12),
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Text('Expires: ${row.doc.expirationDate!.toLocal().toString().split(' ')[0]}', style: const TextStyle(fontSize: 12, fontFamily: 'monospace', color: AppColors.textSecondary)),
+                                    Text(days < 0 ? '${days.abs()}d overdue' : '${days}d remaining', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: days < 0 ? AppColors.failed : AppColors.textSecondary)),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      },
+                      childCount: _selectedView == 'Calendar' || _selectedView == 'Upcoming' 
+                                  ? upcoming.length + 1 
+                                  : expired.length + 1,
+                    ),
+                  ),
+                );
               },
-              icon: const Icon(Icons.upload_file),
-              label: const Text('Upload Document'),
-            )
-          : null,
-    );
-  }
-}
-
-// ──────────────────────────────────────────────────────────────────────────────
-// Shimmer Loading States
-// ──────────────────────────────────────────────────────────────────────────────
-
-class _KycShimmer extends StatelessWidget {
-  const _KycShimmer();
-
-  @override
-  Widget build(BuildContext context) {
-    return ListView(
-      padding: const EdgeInsets.all(16),
-      children: [
-        Shimmer.fromColors(
-          baseColor: AppColors.shimmer,
-          highlightColor: AppColors.shimmerHighlight,
-          child: Card(
-            child: Container(
-              height: 200,
-              width: double.infinity,
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(12),
-              ),
-            ),
-          ),
-        ),
-        const SizedBox(height: 16),
-        Shimmer.fromColors(
-          baseColor: AppColors.shimmer,
-          highlightColor: AppColors.shimmerHighlight,
-          child: Container(height: 24, width: 150, color: Colors.white),
-        ),
-        const SizedBox(height: 16),
-        ...List.generate(
-          3,
-          (index) => Padding(
-            padding: const EdgeInsets.only(bottom: 12),
-            child: Shimmer.fromColors(
-              baseColor: AppColors.shimmer,
-              highlightColor: AppColors.shimmerHighlight,
-              child: Card(
-                child: Container(
-                  height: 100,
-                  width: double.infinity,
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _ProfileCard extends StatelessWidget {
-  final Vendor vendor;
-  const _ProfileCard({required this.vendor});
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    vendor.legalName,
-                    style: Theme.of(context).textTheme.titleMedium,
-                  ),
-                ),
-                StatusChip.vendorStatus(vendor.status.name.toUpperCase()),
-              ],
-            ),
-            if (vendor.tradeName != null && vendor.tradeName!.isNotEmpty) ...[
-              const SizedBox(height: 4),
-              Text(
-                'T/A: ${vendor.tradeName}',
-                style: Theme.of(context).textTheme.bodySmall,
-              ),
-            ],
-            const SizedBox(height: 16),
-            const Divider(),
-            const SizedBox(height: 12),
-            if (vendor.pan != null) _DataRow('PAN', vendor.pan!),
-            if (vendor.gstin != null) _DataRow('GSTIN', vendor.gstin!),
-            if (vendor.udyamNumber != null)
-              _DataRow('UDYAM', vendor.udyamNumber!),
-            _DataRow('Email', vendor.email),
-            _DataRow('Phone', vendor.phone),
-            const SizedBox(height: 12),
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: AppColors.primary.withAlpha(15),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Row(
-                children: [
-                  const Icon(
-                    Icons.info_outline,
-                    size: 16,
-                    color: AppColors.primary,
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      'To update core details, please upload a new authoritative document (GST or Udyam).',
-                      style: Theme.of(
-                        context,
-                      ).textTheme.bodySmall?.copyWith(color: AppColors.primary),
-                    ),
-                  ),
-                ],
-              ),
             ),
           ],
         ),
       ),
     );
   }
-}
 
-class _DataRow extends StatelessWidget {
-  final String label;
-  final String value;
-  const _DataRow(this.label, this.value);
+  Widget _buildAttentionCard(List<_DocRow> expired, List<_DocRow> upcoming) {
+    final now = DateTime.now();
+    final within30 = upcoming.where((d) => d.doc.expirationDate!.difference(now).inDays <= 30).length;
+    final within60 = upcoming.where((d) => d.doc.expirationDate!.difference(now).inDays > 30 && d.doc.expirationDate!.difference(now).inDays <= 60).length;
+    final within90 = upcoming.where((d) => d.doc.expirationDate!.difference(now).inDays > 60 && d.doc.expirationDate!.difference(now).inDays <= 90).length;
+    final totalAttention = expired.length + within30 + within60;
 
-  @override
-  Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.only(bottom: 24),
+      child: Card(
+        color: const Color(0xFFFAFAFA),
+        elevation: 0,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+          side: const BorderSide(color: Color(0xFFEEEEEE)),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('Attention Required', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
+              const Text('Reminders are sent at 90, 60 and 30 days.', style: TextStyle(color: AppColors.textSecondary, fontSize: 12)),
+              const SizedBox(height: 16),
+              Text(totalAttention.toString(), style: const TextStyle(fontSize: 32, fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
+              const Text('certifications require attention', style: TextStyle(color: AppColors.textSecondary, fontSize: 12)),
+              const SizedBox(height: 16),
+              const Divider(height: 1, color: Color(0xFFEEEEEE)),
+              const SizedBox(height: 12),
+              _buildStatRow('expired', expired.length.toString()),
+              _buildStatRow('within 30 days', within30.toString()),
+              _buildStatRow('within 60 days', within60.toString()),
+              _buildStatRow('within 90 days', within90.toString()),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildStatRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          SizedBox(
-            width: 80,
-            child: Text(label, style: Theme.of(context).textTheme.bodySmall),
-          ),
-          Expanded(
-            child: Text(
-              value,
-              style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 13),
-            ),
-          ),
+          Text(label, style: const TextStyle(color: AppColors.textSecondary, fontSize: 14)),
+          Text(value, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
         ],
       ),
     );
   }
 }
 
-class _DocumentsSection extends StatelessWidget {
+class _DocRow {
   final Vendor vendor;
-  const _DocumentsSection({required this.vendor});
-
-  @override
-  Widget build(BuildContext context) {
-    final docs = vendor.documents;
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(
-              'Uploaded Documents',
-              style: Theme.of(context).textTheme.titleSmall,
-            ),
-            if (docs.any((d) => d.status.isProcessing))
-              TextButton.icon(
-                onPressed: () => context.push('/kyc/status/${vendor.id}'),
-                icon: const Icon(Icons.analytics_outlined, size: 16),
-                label: const Text('View OCR Status'),
-              ),
-          ],
-        ),
-        const SizedBox(height: 12),
-        if (docs.isEmpty)
-          const _EmptyDocsState()
-        else
-          ...docs.map((d) => _DocTile(doc: d)),
-      ],
-    );
-  }
-}
-
-class _EmptyDocsState extends StatelessWidget {
-  const _EmptyDocsState();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(32),
-      decoration: BoxDecoration(
-        color: AppColors.surfaceCard,
-        border: Border.all(color: AppColors.divider),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Column(
-        children: [
-          const Icon(
-            Icons.drive_folder_upload,
-            size: 48,
-            color: AppColors.textSecondary,
-          ),
-          const SizedBox(height: 16),
-          Text(
-            'No documents uploaded',
-            style: Theme.of(
-              context,
-            ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Upload your Udyam (MSME) or GSTIN certificates to start the automated KYC process.',
-            textAlign: TextAlign.center,
-            style: Theme.of(context).textTheme.bodySmall,
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _DocTile extends StatelessWidget {
   final VendorDocument doc;
-  const _DocTile({required this.doc});
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      margin: const EdgeInsets.only(bottom: 10),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    doc.type.replaceAll('_', ' '),
-                    style: const TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-                StatusChip.documentStatus(doc.status.name.toUpperCase()),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                Icon(
-                  doc.status == DocumentStatus.parsed
-                      ? Icons.check_circle_outline
-                      : Icons.schedule,
-                  size: 14,
-                  color: AppColors.textSecondary,
-                ),
-                const SizedBox(width: 4),
-                Text(
-                  'Uploaded ${DateFormat('dd MMM yyyy').format(doc.uploadedAt)}',
-                  style: Theme.of(context).textTheme.bodySmall,
-                ),
-              ],
-            ),
-            if (doc.certificateNumber != null) ...[
-              const SizedBox(height: 6),
-              Text(
-                'No: ${doc.certificateNumber}',
-                style: const TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ],
-            if (doc.isExpired || doc.isExpiringSoon) ...[
-              const SizedBox(height: 8),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: doc.isExpired
-                      ? AppColors.failed.withAlpha(20)
-                      : AppColors.pending.withAlpha(20),
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                child: Text(
-                  doc.isExpired ? 'Expired Document' : 'Expiring Soon',
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                    color: doc.isExpired ? AppColors.failed : AppColors.pending,
-                  ),
-                ),
-              ),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
+  _DocRow({required this.vendor, required this.doc});
 }

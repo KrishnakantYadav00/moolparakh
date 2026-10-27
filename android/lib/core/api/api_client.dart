@@ -51,7 +51,7 @@ class NetworkException extends ApiException {
 
 class ApiClient {
   static const _defaultBase =
-      'http://10.0.2.2:5000/api'; // Android emulator → localhost
+      'http://192.168.1.2:5000/api'; // Physical device → PC Wi-Fi IP
   static const _prefsKey = 'api_base_url';
 
   late final Dio _dio;
@@ -289,6 +289,10 @@ class ApiClient {
     return await _get('/rfqs/$id') as Map<String, dynamic>;
   }
 
+  Future<Map<String, dynamic>> createRfq(Map<String, dynamic> body) async {
+    return await _post('/rfqs', body) as Map<String, dynamic>;
+  }
+
   /// Supplier submits a bid on an open RFQ.
   Future<Map<String, dynamic>> submitBid(
     String rfqId, {
@@ -306,6 +310,13 @@ class ApiClient {
           if (notes != null) 'notes': notes,
         })
         as Map<String, dynamic>;
+  }
+
+  // ─── Intelligence ─────────────────────────────────────────────────────────
+
+  Future<List<Map<String, dynamic>>> listIntelligenceEvents() async {
+    final res = await _get('/intelligence/events');
+    return (res as List).cast<Map<String, dynamic>>();
   }
 
   // ─── Notifications ────────────────────────────────────────────────────────

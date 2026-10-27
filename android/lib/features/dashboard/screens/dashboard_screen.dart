@@ -2,413 +2,222 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:shimmer/shimmer.dart';
-import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
+
+import '../../../shared/widgets/main_shell.dart';
 import '../../../core/models/vendor.dart';
-import '../../../core/providers/vendors_provider.dart';
+import '../../../core/models/rfq.dart';
+import '../../../core/providers/vendors_list_provider.dart';
+import '../../../core/providers/rfq_provider.dart';
 import '../../../core/theme/app_theme.dart';
-import '../../../shared/widgets/status_chip.dart';
-import '../../../shared/widgets/trust_score_badge.dart';
-import '../../auth/screens/login_screen.dart';
 
 class DashboardScreen extends ConsumerWidget {
   const DashboardScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // 1. Optimize rebuilds: only watch the vendor ID first to avoid rebuilding
-    // the whole Scaffold when vendor details change.
-    final vendorId = ref.watch(currentVendorIdProvider);
-
-    if (vendorId == null) {
-      return const Scaffold(body: Center(child: Text('Not logged in')));
-    }
+    final vendorsAsync = ref.watch(vendorsListProvider);
+    final rfqsAsync = ref.watch(rfqListProvider);
 
     return Scaffold(
       backgroundColor: AppColors.surface,
       body: RefreshIndicator(
         onRefresh: () async {
           HapticFeedback.lightImpact();
-          ref.read(vendorDetailProvider(vendorId).notifier).refresh();
+          ref.invalidate(vendorsListProvider);
+          ref.invalidate(rfqListProvider);
         },
         child: CustomScrollView(
           physics: const BouncingScrollPhysics(
             parent: AlwaysScrollableScrollPhysics(),
           ),
           slivers: [
-            // Premium Sliver App Bar
             SliverAppBar(
-              expandedHeight: 120.0,
               floating: true,
               pinned: true,
               elevation: 0,
-              backgroundColor: AppColors.primary,
-              flexibleSpace: FlexibleSpaceBar(
-                titlePadding: const EdgeInsets.only(left: 20, bottom: 16),
-                title: const Text(
-                  'Dashboard',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w600,
-                    fontSize: 20,
-                  ),
-                ),
-                background: Container(
-                  decoration: const BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [AppColors.primary, AppColors.primaryLight],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                  ),
+              backgroundColor: AppColors.surface,
+              iconTheme: const IconThemeData(color: AppColors.textPrimary),
+              leading: IconButton(
+                icon: const Icon(Icons.menu),
+                onPressed: () {
+                  mainShellScaffoldKey.currentState?.openDrawer();
+                },
+              ),
+              title: const Text(
+                'Good morning, Procurement',
+                style: TextStyle(
+                  color: AppColors.textPrimary,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 18,
+                  letterSpacing: -0.5,
                 ),
               ),
               actions: [
                 IconButton(
                   icon: const Icon(
-                    Icons.notifications_none,
-                    color: Colors.white,
+                    Icons.notifications_outlined,
+                    color: AppColors.textPrimary,
                   ),
                   onPressed: () {
                     HapticFeedback.lightImpact();
-                    context.push('/notifications');
+                    context.go('/home/notifications');
                   },
                 ),
                 IconButton(
-                  icon: const Icon(Icons.logout, color: Colors.white),
+                  icon: const Icon(Icons.settings_outlined, color: AppColors.textPrimary),
                   onPressed: () {
                     HapticFeedback.mediumImpact();
-                    ref.read(currentVendorIdProvider.notifier).state = null;
-                    context.go('/login');
+                    context.push('/settings');
                   },
                 ),
               ],
             ),
-
-            // Staggered Content Area (Isolating Vendor Watch)
-            SliverToBoxAdapter(
-              child: _VendorDashboardContent(vendorId: vendorId),
+            const SliverToBoxAdapter(
+              child: Padding(
+                padding: EdgeInsets.symmetric(horizontal: 20, vertical: 4),
+                child: Text(
+                  'Your supplier network at a glance.',
+                  style: TextStyle(color: AppColors.textSecondary, fontSize: 14),
+                ),
+              ),
+            ),
+            vendorsAsync.when(
+              loading: () => const SliverFillRemaining(
+                child: Center(child: CircularProgressIndicator()),
+              ),
+              error: (err, _) => SliverFillRemaining(
+                child: Center(child: Text('Error loading network data', style: TextStyle(color: AppColors.failed))),
+              ),
+              data: (vendors) {
+                return rfqsAsync.when(
+                  loading: () => const SliverFillRemaining(
+                    child: Center(child: CircularProgressIndicator()),
+                  ),
+                  error: (err, _) => SliverFillRemaining(
+                    child: Center(child: Text('Error loading RFQs', style: TextStyle(color: AppColors.failed))),
+                  ),
+                  data: (rfqs) {
+                    return SliverToBoxAdapter(
+                      child: Padding(
+                        padding: const EdgeInsets.all(20),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            _buildKpiGrid(context, vendors, rfqs),
+                            const SizedBox(height: 24),
+                            _buildRiskSnapshot(context, vendors),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                );
+              },
             ),
           ],
         ),
       ),
     );
   }
-}
 
-class _VendorDashboardContent extends ConsumerWidget {
-  final String vendorId;
-  const _VendorDashboardContent({required this.vendorId});
+  Widget _buildKpiGrid(BuildContext context, List<Vendor> vendors, List<Rfq> rfqs) {
+    final verifiedCount = vendors.where((v) => v.status == VendorStatus.verified).length;
+    final totalTrust = vendors.fold<int>(0, (sum, v) => sum + (v.trustScore?.overallScore ?? 0));
+    final avgTrust = vendors.isEmpty ? 0.0 : totalTrust / vendors.length;
+    final openRfqs = rfqs.where((r) => r.status == RfqStatus.open).length;
 
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final vendorAsync = ref.watch(vendorDetailProvider(vendorId));
-
-    return vendorAsync.when(
-      loading: () => const _DashboardShimmer(),
-      error: (e, _) => Center(
-        child: Padding(
-          padding: const EdgeInsets.all(32.0),
-          child: Text(
-            'Failed to load dashboard: $e',
-            style: const TextStyle(color: AppColors.failed),
-          ),
+    return GridView.count(
+      crossAxisCount: 2,
+      crossAxisSpacing: 12,
+      mainAxisSpacing: 12,
+      childAspectRatio: 1.3,
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      children: [
+        _KpiCard(
+          title: 'Verified Vendors',
+          value: verifiedCount.toString(),
+          subtitle: 'vendors verified',
+          icon: Icons.verified,
+          color: Colors.teal,
+          onTap: () => context.go('/home/vendors'),
         ),
+        _KpiCard(
+          title: 'Avg Trust Score',
+          value: avgTrust.toStringAsFixed(1),
+          subtitle: 'network average',
+          icon: Icons.speed,
+          color: Colors.teal,
+          onTap: () => context.go('/home/vendors'),
+        ),
+        _KpiCard(
+          title: 'Compliance Risk',
+          value: '0', // Hardcoded simplification
+          subtitle: 'certifications need attention',
+          icon: Icons.warning_amber_rounded,
+          color: Colors.orange,
+          onTap: () => context.go('/home/kyc'),
+        ),
+        _KpiCard(
+          title: 'Active RFQs',
+          value: openRfqs.toString(),
+          subtitle: 'collecting quotes',
+          icon: Icons.description_outlined,
+          color: Colors.blue,
+          onTap: () => context.go('/home/rfq'),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildRiskSnapshot(BuildContext context, List<Vendor> vendors) {
+    final critical = vendors.where((v) => (v.trustScore?.overallScore ?? 0) < 25).length;
+    final high = vendors.where((v) => (v.trustScore?.overallScore ?? 0) >= 25 && (v.trustScore?.overallScore ?? 0) < 50).length;
+    final medium = vendors.where((v) => (v.trustScore?.overallScore ?? 0) >= 50 && (v.trustScore?.overallScore ?? 0) < 75).length;
+    final low = vendors.where((v) => (v.trustScore?.overallScore ?? 0) >= 75).length;
+    final total = vendors.isEmpty ? 1 : vendors.length;
+
+    return Card(
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: const BorderSide(color: Color(0xFFEEEEEE)),
       ),
-      data: (vendor) => AnimationLimiter(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
         child: Column(
-          children: AnimationConfiguration.toStaggeredList(
-            duration: const Duration(milliseconds: 375),
-            childAnimationBuilder: (widget) => SlideAnimation(
-              verticalOffset: 50.0,
-              child: FadeInAnimation(child: widget),
-            ),
-            children: [
-              const SizedBox(height: 16),
-              _WelcomeHeader(vendor: vendor),
-              const SizedBox(height: 24),
-              _TrustScoreHeroCard(vendor: vendor),
-              const SizedBox(height: 24),
-              _Section43bAlertCard(vendor: vendor),
-              const SizedBox(height: 24),
-              _ActionCardsGrid(),
-              const SizedBox(height: 40),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-// ──────────────────────────────────────────────────────────────────────────────
-// Shimmer Loading States (Performance Architect)
-// ──────────────────────────────────────────────────────────────────────────────
-
-class _DashboardShimmer extends StatelessWidget {
-  const _DashboardShimmer();
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.all(20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Shimmer.fromColors(
-            baseColor: AppColors.shimmer,
-            highlightColor: AppColors.shimmerHighlight,
-            child: Container(
-              height: 24,
-              width: 200,
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(4),
-              ),
-            ),
-          ),
-          const SizedBox(height: 24),
-          Shimmer.fromColors(
-            baseColor: AppColors.shimmer,
-            highlightColor: AppColors.shimmerHighlight,
-            child: Container(
-              height: 180,
-              width: double.infinity,
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(16),
-              ),
-            ),
-          ),
-          const SizedBox(height: 24),
-          Row(
-            children: [
-              Expanded(
-                child: Shimmer.fromColors(
-                  baseColor: AppColors.shimmer,
-                  highlightColor: AppColors.shimmerHighlight,
-                  child: Container(
-                    height: 100,
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Shimmer.fromColors(
-                  baseColor: AppColors.shimmer,
-                  highlightColor: AppColors.shimmerHighlight,
-                  child: Container(
-                    height: 100,
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// ──────────────────────────────────────────────────────────────────────────────
-// Components
-// ──────────────────────────────────────────────────────────────────────────────
-
-class _WelcomeHeader extends StatelessWidget {
-  final Vendor vendor;
-  const _WelcomeHeader({required this.vendor});
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Expanded(
-            child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
               crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(
-                  'Welcome back,',
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: AppColors.textSecondary,
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: const [
+                      Text('Supplier Risk Snapshot', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
+                      SizedBox(height: 2),
+                      Text('Risk banding derived from trust scores.', style: TextStyle(color: AppColors.textSecondary, fontSize: 11)),
+                    ],
                   ),
                 ),
-                const SizedBox(height: 4),
-                Text(
-                  vendor.legalName,
-                  style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: -0.5,
+                TextButton(
+                  onPressed: () => context.go('/home/intelligence'),
+                  style: TextButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    minimumSize: Size.zero,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                   ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
+                  child: const Text('Intelligence', style: TextStyle(fontSize: 12)),
                 ),
               ],
             ),
-          ),
-          StatusChip.vendorStatus(vendor.status.name.toUpperCase()),
-        ],
-      ),
-    );
-  }
-}
-
-class _TrustScoreHeroCard extends StatelessWidget {
-  final Vendor vendor;
-  const _TrustScoreHeroCard({required this.vendor});
-
-  @override
-  Widget build(BuildContext context) {
-    final score = vendor.trustScore?.overallScore ?? 0;
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20),
-      child: GestureDetector(
-        onTap: () {
-          HapticFeedback.selectionClick();
-          context.push('/trust-score');
-        },
-        child: Container(
-          decoration: BoxDecoration(
-            color: AppColors.surfaceCard,
-            borderRadius: BorderRadius.circular(20),
-            boxShadow: [
-              BoxShadow(
-                color: AppColors.primary.withAlpha(15),
-                blurRadius: 20,
-                offset: const Offset(0, 10),
-              ),
-            ],
-            border: Border.all(color: AppColors.divider.withAlpha(100)),
-          ),
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            children: [
-              const Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    'MoolParakh Trust Score',
-                    style: TextStyle(fontWeight: FontWeight.w600, fontSize: 16),
-                  ),
-                  Icon(Icons.chevron_right, color: AppColors.textSecondary),
-                ],
-              ),
-              const SizedBox(height: 24),
-              // RepaintBoundary isolates the chart drawing from the rest of the list scroll
-              RepaintBoundary(
-                child: Hero(
-                  tag: 'trust-badge-${vendor.id}',
-                  child: Material(
-                    color: Colors.transparent,
-                    child: TrustScoreBadge(
-                      score: score,
-                      size: 120,
-                      strokeWidth: 10,
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 24),
-              Text(
-                _getScoreMessage(score),
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: AppColors.textSecondary,
-                  height: 1.4,
-                ),
-                textAlign: TextAlign.center,
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  String _getScoreMessage(int score) {
-    if (score == 0)
-      return 'Upload your Udyam and GSTIN to calculate your score.';
-    if (score >= 80)
-      return 'Excellent! You are highly attractive to enterprise buyers. Keep your documents updated.';
-    if (score >= 50)
-      return 'Your score is moderate. Ensure no GST filing delays to improve your ranking.';
-    return 'Action Required: Your low score severely impacts your bid win rate under Section 43B(h).';
-  }
-}
-
-class _Section43bAlertCard extends StatelessWidget {
-  final Vendor vendor;
-  const _Section43bAlertCard({required this.vendor});
-
-  @override
-  Widget build(BuildContext context) {
-    final docs = vendor.documents;
-    final hasUdyam = docs.any(
-      (d) => d.type == 'UDYAM_CERTIFICATE' && d.status == DocumentStatus.parsed,
-    );
-    final isCritical =
-        !hasUdyam || (vendor.trustScore?.overallScore ?? 100) < 50;
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20),
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: isCritical
-              ? AppColors.failed.withAlpha(15)
-              : AppColors.primary.withAlpha(15),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: isCritical
-                ? AppColors.failed.withAlpha(50)
-                : AppColors.primary.withAlpha(50),
-          ),
-        ),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Icon(
-              isCritical ? Icons.warning_amber_rounded : Icons.info_outline,
-              color: isCritical ? AppColors.failed : AppColors.primary,
-              size: 24,
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Section 43B(h) Compliance',
-                    style: TextStyle(
-                      fontWeight: FontWeight.w600,
-                      color: isCritical ? AppColors.failed : AppColors.primary,
-                      fontSize: 14,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    hasUdyam
-                        ? 'Your MSME Udyam status is active. Buyers can claim deductions on time.'
-                        : 'Missing Udyam Certificate! Buyers may reject your bids to avoid 43B(h) tax penalties. Upload immediately.',
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: isCritical
-                          ? AppColors.failed.withAlpha(200)
-                          : AppColors.textPrimary,
-                    ),
-                  ),
-                ],
-              ),
-            ),
+            const SizedBox(height: 24),
+            _RiskBar('CRITICAL', critical, total, const Color(0xFFB71C1C)),
+            _RiskBar('HIGH', high, total, const Color(0xFFE65100)),
+            _RiskBar('MEDIUM', medium, total, const Color(0xFFF57F17)),
+            _RiskBar('LOW', low, total, const Color(0xFF2E7D32)),
           ],
         ),
       ),
@@ -416,50 +225,18 @@ class _Section43bAlertCard extends StatelessWidget {
   }
 }
 
-class _ActionCardsGrid extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20),
-      child: Row(
-        children: [
-          Expanded(
-            child: _ActionCard(
-              title: 'KYC & Docs',
-              icon: Icons.verified_user_outlined,
-              color: AppColors.trustExcellent,
-              onTap: () {
-                HapticFeedback.lightImpact();
-                context.push('/kyc');
-              },
-            ),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: _ActionCard(
-              title: 'My Bids',
-              icon: Icons.gavel_outlined,
-              color: AppColors.primaryLight,
-              onTap: () {
-                HapticFeedback.lightImpact();
-                context.go('/rfqs'); // Switch tab
-              },
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _ActionCard extends StatelessWidget {
+class _KpiCard extends StatelessWidget {
   final String title;
+  final String value;
+  final String subtitle;
   final IconData icon;
   final Color color;
   final VoidCallback onTap;
 
-  const _ActionCard({
+  const _KpiCard({
     required this.title,
+    required this.value,
+    required this.subtitle,
     required this.icon,
     required this.color,
     required this.onTap,
@@ -469,28 +246,84 @@ class _ActionCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(16),
+      borderRadius: BorderRadius.circular(12),
       child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
+        padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: color.withAlpha(15),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: color.withAlpha(30)),
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: const Color(0xFFEEEEEE)),
         ),
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Icon(icon, size: 32, color: color),
-            const SizedBox(height: 12),
-            Text(
-              title,
-              style: TextStyle(
-                fontWeight: FontWeight.w600,
-                color: color,
-                fontSize: 14,
-              ),
+            Row(
+              children: [
+                Icon(icon, size: 16, color: color),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    title,
+                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.textSecondary),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
             ),
+            const Spacer(),
+            Text(value, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
+            Text(subtitle, style: const TextStyle(fontSize: 11, color: AppColors.textSecondary)),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _RiskBar extends StatelessWidget {
+  final String label;
+  final int count;
+  final int total;
+  final Color color;
+
+  const _RiskBar(this.label, this.count, this.total, this.color);
+
+  @override
+  Widget build(BuildContext context) {
+    final flex = (count / total * 100).clamp(0, 100).toInt();
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 70,
+            child: Text(label, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: AppColors.textPrimary)),
+          ),
+          Expanded(
+            child: Container(
+              height: 8,
+              decoration: BoxDecoration(
+                color: const Color(0xFFEEEEEE),
+                borderRadius: BorderRadius.circular(4),
+              ),
+              alignment: Alignment.centerLeft,
+              child: FractionallySizedBox(
+                widthFactor: flex / 100 == 0 ? 0.01 : flex / 100,
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: flex > 0 ? color : Colors.transparent,
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                ),
+              ),
+            ),
+          ),
+          SizedBox(
+            width: 30,
+            child: Text(count.toString(), textAlign: TextAlign.right, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.textPrimary)),
+          ),
+        ],
       ),
     );
   }

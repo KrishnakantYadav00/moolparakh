@@ -1,56 +1,43 @@
 // lib/core/providers/rfq_provider.dart
 
-import 'dart:convert';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import '../api/api_client.dart';
 import '../models/rfq.dart';
-
-const _rfqCacheKey = 'moolparakh_rfq_cache';
+import '../services/demo_data.dart';
+import 'demo_mode_provider.dart';
 
 class RfqListNotifier extends AsyncNotifier<List<Rfq>> {
   @override
   Future<List<Rfq>> build() async {
-    // 1. Immediately yield cached data if available (0ms render time)
-    final prefs = await SharedPreferences.getInstance();
-    final cachedStr = prefs.getString(_rfqCacheKey);
-
-    if (cachedStr != null) {
-      try {
-        final List<dynamic> rawList = jsonDecode(cachedStr);
-        final cachedRfqs = rawList.map((j) => Rfq.fromJson(j)).toList();
-        state = AsyncData(cachedRfqs);
-      } catch (_) {
-        // Cache corrupted, ignore
-      }
-    }
-
-    // 2. Fetch fresh data from network
+    final isDemo = ref.watch(isDemoModeProvider);
+    if (isDemo) return demoRfqs;
     return _fetch();
   }
 
   Future<List<Rfq>> _fetch() async {
     final raw = await ApiClient.instance.listRfqs();
-    final rfqs = raw.map((j) => Rfq.fromJson(j)).toList();
-
-    // Save to cache asynchronously
-    SharedPreferences.getInstance().then((prefs) {
-      prefs.setString(_rfqCacheKey, jsonEncode(raw));
-    });
-
-    return rfqs;
+    return raw.map((j) => Rfq.fromJson(j)).toList();
   }
 
   Future<void> refresh() async {
-    // We intentionally don't set AsyncLoading here so the UI doesn't jump to a shimmer state
-    // when pulling to refresh. It just shows the refresh indicator and keeps the current data.
-    state = await AsyncValue.guard(_fetch);
+    state = await AsyncValue.guard(() async {
+      final isDemo = ref.read(isDemoModeProvider);
+      if (isDemo) return demoRfqs;
+      return _fetch();
+    });
   }
 }
 
 class RfqDetailNotifier extends FamilyAsyncNotifier<Rfq, String> {
   @override
-  Future<Rfq> build(String rfqId) => _fetch(rfqId);
+  Future<Rfq> build(String rfqId) async {
+    final isDemo = ref.read(isDemoModeProvider);
+    if (isDemo) {
+      final found = demoRfqs.where((r) => r.id == rfqId).toList();
+      if (found.isNotEmpty) return found.first;
+    }
+    return _fetch(rfqId);
+  }
 
   Future<Rfq> _fetch(String id) async {
     final raw = await ApiClient.instance.getRfq(id);
@@ -72,7 +59,7 @@ final rfqDetailProvider =
       RfqDetailNotifier.new,
     );
 
-/// Derived: only OPEN RFQs the supplier can bid on.
+/// Derived: only OPEN RFQs.
 final openRfqsProvider = Provider<AsyncValue<List<Rfq>>>((ref) {
   return ref
       .watch(rfqListProvider)
@@ -89,7 +76,6 @@ class BidWeightsNotifier
       (price: 0.45, delivery: 0.30, trust: 0.25);
 
   void update(double price, double delivery, double trust) {
-    // Normalise so they always sum to 1.0
     final total = price + delivery + trust;
     state = (
       price: price / total,

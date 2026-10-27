@@ -12,6 +12,8 @@ import '../../core/providers/notifications_provider.dart';
 import '../../core/theme/app_theme.dart';
 import 'offline_banner.dart';
 
+final GlobalKey<ScaffoldState> mainShellScaffoldKey = GlobalKey<ScaffoldState>();
+
 class MainShell extends ConsumerWidget {
   final Widget child;
   const MainShell({super.key, required this.child});
@@ -57,6 +59,82 @@ class MainShell extends ConsumerWidget {
     final currentIndex = _currentIndex(context);
 
     return Scaffold(
+      key: mainShellScaffoldKey,
+      drawer: Drawer(
+        backgroundColor: AppColors.surface,
+        child: ListView(
+          padding: EdgeInsets.zero,
+          children: [
+            const DrawerHeader(
+              decoration: BoxDecoration(color: AppColors.primary),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  Text(
+                    'MoolParakh',
+                    style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold),
+                  ),
+                  SizedBox(height: 8),
+                  Text(
+                    'Enterprise Procurement Portal',
+                    style: TextStyle(color: Colors.white70, fontSize: 14),
+                  ),
+                ],
+              ),
+            ),
+            ListTile(
+              leading: const Icon(Icons.dashboard_outlined),
+              title: const Text('Overview'),
+              onTap: () {
+                Navigator.pop(context);
+                context.go('/home/dashboard');
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.business_outlined),
+              title: const Text('Vendors'),
+              onTap: () {
+                Navigator.pop(context);
+                context.go('/home/vendors');
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.verified_user_outlined),
+              title: const Text('Compliance (My KYC)'),
+              onTap: () {
+                Navigator.pop(context);
+                context.go('/home/kyc');
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.auto_graph_outlined),
+              title: const Text('Supplier Intelligence'),
+              onTap: () {
+                Navigator.pop(context);
+                context.go('/home/intelligence');
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.request_quote_outlined),
+              title: const Text('RFQs & Bids'),
+              onTap: () {
+                Navigator.pop(context);
+                context.go('/home/rfq');
+              },
+            ),
+            const Divider(),
+            ListTile(
+              leading: const Icon(Icons.settings_outlined),
+              title: const Text('Settings'),
+              onTap: () {
+                Navigator.pop(context);
+                context.push('/settings');
+              },
+            ),
+          ],
+        ),
+      ),
       body: OfflineBanner(child: child),
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: currentIndex,

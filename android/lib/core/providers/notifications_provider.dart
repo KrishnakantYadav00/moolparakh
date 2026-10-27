@@ -3,10 +3,16 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../api/api_client.dart';
 import '../models/notification.dart';
+import '../services/demo_data.dart';
+import 'demo_mode_provider.dart';
 
 class NotificationsNotifier extends AsyncNotifier<List<AppNotification>> {
   @override
-  Future<List<AppNotification>> build() => _fetch();
+  Future<List<AppNotification>> build() async {
+    final isDemo = ref.watch(isDemoModeProvider);
+    if (isDemo) return demoNotifications;
+    return _fetch();
+  }
 
   Future<List<AppNotification>> _fetch() async {
     final raw = await ApiClient.instance.listNotifications();
@@ -18,7 +24,11 @@ class NotificationsNotifier extends AsyncNotifier<List<AppNotification>> {
 
   Future<void> refresh() async {
     state = const AsyncLoading();
-    state = await AsyncValue.guard(_fetch);
+    state = await AsyncValue.guard(() async {
+      final isDemo = ref.read(isDemoModeProvider);
+      if (isDemo) return demoNotifications;
+      return _fetch();
+    });
   }
 
   Future<void> markRead(String id) async {

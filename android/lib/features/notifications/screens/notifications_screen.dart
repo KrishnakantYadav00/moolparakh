@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shimmer/shimmer.dart';
 import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
+import '../../../shared/widgets/main_shell.dart';
 import '../../../core/models/notification.dart';
 import '../../../core/providers/notifications_provider.dart';
 import '../../../core/theme/app_theme.dart';
@@ -28,15 +29,29 @@ class NotificationsScreen extends ConsumerWidget {
           ),
           slivers: [
             SliverAppBar(
-              expandedHeight: 120.0,
               floating: true,
               pinned: true,
               elevation: 0,
-              backgroundColor: AppColors.primary,
-              iconTheme: const IconThemeData(color: Colors.white),
+              backgroundColor: AppColors.surface,
+              iconTheme: const IconThemeData(color: AppColors.textPrimary),
+              leading: IconButton(
+                icon: const Icon(Icons.menu),
+                onPressed: () {
+                  mainShellScaffoldKey.currentState?.openDrawer();
+                },
+              ),
+              title: const Text(
+                'Alerts',
+                style: TextStyle(
+                  color: AppColors.textPrimary,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 24,
+                  letterSpacing: -0.5,
+                ),
+              ),
               actions: [
                 IconButton(
-                  icon: const Icon(Icons.done_all, color: Colors.white),
+                  icon: const Icon(Icons.done_all, color: AppColors.textPrimary),
                   tooltip: 'Mark all read',
                   onPressed: () {
                     HapticFeedback.mediumImpact();
@@ -44,26 +59,6 @@ class NotificationsScreen extends ConsumerWidget {
                   },
                 ),
               ],
-              flexibleSpace: FlexibleSpaceBar(
-                titlePadding: const EdgeInsets.only(left: 48, bottom: 16),
-                title: const Text(
-                  'Notifications',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w600,
-                    fontSize: 20,
-                  ),
-                ),
-                background: Container(
-                  decoration: const BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [AppColors.primary, AppColors.primaryLight],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                  ),
-                ),
-              ),
             ),
 
             notifsAsync.when(

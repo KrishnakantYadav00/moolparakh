@@ -37,15 +37,6 @@ class MoolParakhApp extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // If a session exists at startup, redirect to dashboard
-    final vendorId = ref.read(currentVendorIdProvider);
-    if (vendorId != null &&
-        appRouter.routerDelegate.currentConfiguration.uri.path == '/login') {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        appRouter.go('/home/dashboard');
-      });
-    }
-
     return MaterialApp.router(
       title: 'MoolParakh Supplier',
       theme: AppTheme.light,
