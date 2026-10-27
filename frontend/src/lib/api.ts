@@ -121,6 +121,37 @@ export interface ApiNotification {
   createdAt: string;
 }
 
+// ─── Disruption event API shapes ─────────────────────────────────────────────
+
+export interface ApiDisruptionTarget {
+  eventId: string;
+  vendorId: string;
+  vendor: { id: string; legalName: string };
+}
+
+export interface ApiDisruptionEvent {
+  id: string;
+  severity: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
+  title: string;
+  category: string;
+  region: string;
+  summary: string;
+  detectedAt: string;
+  sourceUrl: string | null;
+  affectedVendors: ApiDisruptionTarget[];
+}
+
+export interface ApiRelationship {
+  id: string;
+  type: 'SHARED_DIRECTOR' | 'SHARED_BANK_ACCOUNT' | 'SHARED_ADDRESS';
+  value: string;
+  vendorAId: string;
+  vendorBId: string;
+  vendorA: { id: string; legalName: string };
+  vendorB: { id: string; legalName: string };
+  createdAt: string;
+}
+
 // ─── API methods ─────────────────────────────────────────────────────────────
 
 export const api = {
@@ -131,6 +162,9 @@ export const api = {
       req<ApiVendor>('/vendors', { method: 'POST', body: JSON.stringify(body) }),
     update: (id: string, body: Record<string, unknown>) =>
       req<ApiVendor>(`/vendors/${id}`, { method: 'PATCH', body: JSON.stringify(body) }),
+    verify: (id: string) =>
+      req<ApiVendor>(`/vendors/${id}/verify`, { method: 'POST' }),
+    relationships: (id: string) => req<ApiRelationship[]>(`/vendors/${id}/relationships`),
   },
 
   rfqs: {
@@ -152,5 +186,12 @@ export const api = {
       req<{ ok: boolean }>('/notifications/read-all', { method: 'PATCH' }),
     create: (body: Record<string, unknown>) =>
       req<ApiNotification>('/notifications', { method: 'POST', body: JSON.stringify(body) }),
+  },
+
+  intelligence: {
+    events: () => req<ApiDisruptionEvent[]>('/intelligence/events'),
+    riskLeaderboard: () => req<ApiVendor[]>('/intelligence/risk-leaderboard'),
+    eventsForVendor: (vendorId: string) =>
+      req<ApiDisruptionEvent[]>(`/intelligence/events/${vendorId}`),
   },
 };

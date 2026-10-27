@@ -137,7 +137,10 @@ export interface DisruptionEvent {
   region: string;
   detectedMinutesAgo: number;
   summary: string;
+  /** Vendor IDs affected by this event */
   affectedVendorIds: string[];
+  /** Optional vendor name map populated from API response */
+  affectedVendors?: Array<{ id: string; name: string }>;
 }
 
 export interface Bid {
@@ -204,6 +207,10 @@ export interface SupplierRelationship {
   value: string;
   vendorAId: string;
   vendorBId: string;
+  /** Display name for vendor A (populated from API) */
+  vendorAName?: string;
+  /** Display name for vendor B (populated from API) */
+  vendorBName?: string;
 }
 
 export type NotificationKind = 'HIGH' | 'CRITICAL' | 'COMPLIANCE' | 'RFQ' | 'TRUST';

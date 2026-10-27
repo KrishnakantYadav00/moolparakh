@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { RefreshCw } from 'lucide-react';
-import type { Vendor } from '@/types';
+import type { Vendor, DisruptionEvent } from '@/types';
 import { Button } from '@/components/ui/Primitives';
 import { RiskLeaderboard } from '@/components/intelligence/RiskLeaderboard';
 import { DisruptionHeatmap } from '@/components/intelligence/DisruptionHeatmap';
@@ -9,9 +9,8 @@ import {
   SupplierTrustTrends,
 } from '@/components/intelligence/IntelligenceCharts';
 import { DisruptionFeed } from '@/components/intelligence/DisruptionFeed';
-import type { DisruptionEvent } from '@/types';
-
-const disruptionEvents: DisruptionEvent[] = [];
+import { api } from '@/lib/api';
+import { mapDisruptionEvent } from '@/lib/mappers';
 
 export function IntelligencePage({
   vendors,
@@ -20,8 +19,23 @@ export function IntelligencePage({
   vendors: Vendor[];
   onSelectVendor: (vendorId: string) => void;
 }) {
-  const [minutesSinceUpdate, setMinutesSinceUpdate] = useState(2);
+  const [minutesSinceUpdate, setMinutesSinceUpdate] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
+  const [disruptionEvents, setDisruptionEvents] = useState<DisruptionEvent[]>([]);
+
+  // ─── Load disruption events from backend ────────────────────────────────
+  const loadEvents = () => {
+    api.intelligence.events()
+      .then(data => {
+        setDisruptionEvents(data.map(mapDisruptionEvent));
+        setMinutesSinceUpdate(0);
+      })
+      .catch(err => console.error('Failed to load disruption events:', err));
+  };
+
+  useEffect(() => {
+    loadEvents();
+  }, []);
 
   useEffect(() => {
     const timer = window.setInterval(
@@ -33,10 +47,8 @@ export function IntelligencePage({
 
   const refresh = () => {
     setRefreshing(true);
-    window.setTimeout(() => {
-      setRefreshing(false);
-      setMinutesSinceUpdate(0);
-    }, 900);
+    loadEvents();
+    window.setTimeout(() => setRefreshing(false), 900);
   };
 
   return (
@@ -78,7 +90,11 @@ export function IntelligencePage({
 
       <div className="grid gap-4 xl:grid-cols-[1fr,340px] xl:items-start">
         <div className="space-y-4">
-          <RiskLeaderboard vendors={vendors} onSelectVendor={onSelectVendor} />
+          <RiskLeaderboard
+            vendors={vendors}
+            disruptionEvents={disruptionEvents}
+            onSelectVendor={onSelectVendor}
+          />
           <DisruptionHeatmap />
           <div className="grid gap-4 lg:grid-cols-2">
             <LateDeliveryHistogram vendors={vendors} />

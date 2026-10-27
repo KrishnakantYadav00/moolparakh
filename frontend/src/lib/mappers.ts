@@ -6,8 +6,12 @@ import type {
   VendorStatus, RiskLevel, MsmeCategory,
   VerificationChecks, VerificationState,
   TrustComponents, TrustPoint, VendorEvent, VendorEventKind,
+  DisruptionEvent, DisruptionCategory, SupplierRelationship,
 } from '@/types';
-import type { ApiVendor, ApiRfq, ApiBid, ApiNotification } from './api';
+import type {
+  ApiVendor, ApiRfq, ApiBid, ApiNotification,
+  ApiDisruptionEvent, ApiRelationship,
+} from './api';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -57,6 +61,30 @@ function mapVerificationState(status: string): VerificationState {
   if (status === 'SUCCESS') return 'Verified';
   if (status === 'FAILED') return 'Failed';
   return 'Pending';
+}
+
+// ─── Disruption category mapping ──────────────────────────────────────────────
+
+function mapDisruptionCategory(cat: string): DisruptionCategory {
+  const map: Record<string, DisruptionCategory> = {
+    PORT_DISRUPTION: 'Port Disruption',
+    TARIFF: 'Tariff',
+    NATURAL_DISASTER: 'Natural Disaster',
+    GEOPOLITICAL: 'Geopolitical',
+    LOGISTICS: 'Logistics',
+    REGULATORY: 'Regulatory',
+  };
+  return map[cat] ?? 'Logistics';
+}
+
+// ─── Relationship type mapping ────────────────────────────────────────────────
+
+function mapRelationshipType(
+  type: ApiRelationship['type'],
+): SupplierRelationship['type'] {
+  if (type === 'SHARED_DIRECTOR') return 'Shared director';
+  if (type === 'SHARED_BANK_ACCOUNT') return 'Shared bank account';
+  return 'Shared registered address';
 }
 
 // ─── Main mappers ─────────────────────────────────────────────────────────────
@@ -198,5 +226,34 @@ export function mapNotification(raw: ApiNotification): AppNotification {
     detail:      raw.detail,
     minutesAgo:  minutesAgo(raw.createdAt),
     read:        raw.read,
+  };
+}
+
+export function mapDisruptionEvent(raw: ApiDisruptionEvent): DisruptionEvent {
+  return {
+    id:                 raw.id,
+    severity:           raw.severity,
+    title:              raw.title,
+    category:           mapDisruptionCategory(raw.category),
+    region:             raw.region,
+    detectedMinutesAgo: minutesAgo(raw.detectedAt),
+    summary:            raw.summary,
+    affectedVendorIds:  raw.affectedVendors.map(t => t.vendorId),
+    affectedVendors:    raw.affectedVendors.map(t => ({
+      id:   t.vendorId,
+      name: t.vendor.legalName,
+    })),
+  };
+}
+
+export function mapRelationship(raw: ApiRelationship): SupplierRelationship {
+  return {
+    id:          raw.id,
+    type:        mapRelationshipType(raw.type),
+    value:       raw.value,
+    vendorAId:   raw.vendorAId,
+    vendorBId:   raw.vendorBId,
+    vendorAName: raw.vendorA?.legalName,
+    vendorBName: raw.vendorB?.legalName,
   };
 }

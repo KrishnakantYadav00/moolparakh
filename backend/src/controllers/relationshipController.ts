@@ -53,7 +53,8 @@ export async function createRelationship(req: Request, res: Response) {
 // ─── DELETE /api/relationships/:id ──────────────────────────────────────────
 export async function deleteRelationship(req: Request, res: Response) {
   try {
-    await db.supplierRelationship.delete({ where: { id: req.params.id } });
+    const id = String(req.params.id);
+    await db.supplierRelationship.delete({ where: { id } });
     res.json({ ok: true });
   } catch (err) {
     console.error('deleteRelationship error:', err);

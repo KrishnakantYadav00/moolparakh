@@ -1,11 +1,8 @@
 import { useMemo, useState } from 'react';
 import { ArrowDown, ArrowUp, Minus } from 'lucide-react';
-import type { Vendor } from '@/types';
+import type { Vendor, DisruptionEvent } from '@/types';
 import { Card, RiskBadge } from '@/components/ui/Primitives';
 import { TrustMeter } from '@/components/ui/TrustVisuals';
-import type { DisruptionEvent } from '@/types';
-
-const disruptionEvents: DisruptionEvent[] = [];
 
 type SortKey = 'trust' | 'risk' | 'disruptions' | 'trend';
 
@@ -21,9 +18,11 @@ function trendDelta(vendor: Vendor): number {
 
 export function RiskLeaderboard({
   vendors,
+  disruptionEvents = [],
   onSelectVendor,
 }: {
   vendors: Vendor[];
+  disruptionEvents?: DisruptionEvent[];
   onSelectVendor: (vendorId: string) => void;
 }) {
   const [sortKey, setSortKey] = useState<SortKey>('risk');
@@ -53,7 +52,7 @@ export function RiskLeaderboard({
           );
       }
     });
-  }, [vendors, sortKey]);
+  }, [vendors, disruptionEvents, sortKey]);
 
   const header = (label: string, key?: SortKey, align: 'left' | 'right' = 'left') => (
     <th className={`table-header-cell ${align === 'right' ? 'text-right' : ''}`}>
@@ -87,7 +86,7 @@ export function RiskLeaderboard({
               {header('Vendor')}
               {header('Trust Score', 'trust')}
               {header('Risk', 'risk')}
-              {header('Recent Disruptions', 'disruptions', 'right')}
+              {header('Disruptions', 'disruptions', 'right')}
               {header('Trend', 'trend', 'right')}
             </tr>
           </thead>

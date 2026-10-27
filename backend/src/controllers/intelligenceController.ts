@@ -23,15 +23,41 @@ export async function listEvents(_req: Request, res: Response) {
 // ─── GET /api/intelligence/events/:vendorId ──────────────────────────────────
 export async function eventsForVendor(req: Request, res: Response) {
   try {
+    const vendorId = String(req.params.vendorId);
     const targets = await db.disruptionTarget.findMany({
-      where: { vendorId: req.params.vendorId },
+      where: { vendorId },
       include: { event: true },
       orderBy: { event: { detectedAt: 'desc' } },
     });
-    res.json(targets.map((t: { event: object }) => t.event));
+    res.json(targets.map((t) => t.event));
   } catch (err) {
     console.error('eventsForVendor error:', err);
     res.status(500).json({ error: 'Failed to fetch vendor disruption events' });
+  }
+}
+
+// ─── GET /api/intelligence/risk-leaderboard ──────────────────────────────────
+// Returns vendors ranked by trust score (ascending = worst first for risk view)
+export async function riskLeaderboard(_req: Request, res: Response) {
+  try {
+    const vendors = await db.vendor.findMany({
+      include: {
+        trustScore: true,
+        verifications: { orderBy: { createdAt: 'desc' }, take: 5 },
+        documents: {
+          where: { expirationDate: { not: null } },
+          orderBy: { expirationDate: 'asc' },
+          take: 3,
+        },
+      },
+      orderBy: [
+        { trustScore: { overallScore: 'asc' } },
+      ],
+    });
+    res.json(vendors);
+  } catch (err) {
+    console.error('riskLeaderboard error:', err);
+    res.status(500).json({ error: 'Failed to fetch risk leaderboard' });
   }
 }
 

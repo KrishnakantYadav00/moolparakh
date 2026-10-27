@@ -1,6 +1,8 @@
 // src/controllers/vendorController.ts
 import type { Request, Response } from 'express';
 import db from '@/lib/db.js';
+import { runVendorVerificationPipeline } from '@/services/verificationService.js';
+import { recalculateTrustScore } from '@/services/trustEngine.js';
 
 // ─── GET /api/vendors ───────────────────────────────────────────────────────
 export async function listVendors(_req: Request, res: Response) {
@@ -27,8 +29,9 @@ export async function listVendors(_req: Request, res: Response) {
 // ─── GET /api/vendors/:id ───────────────────────────────────────────────────
 export async function getVendor(req: Request, res: Response) {
   try {
+    const id = String(req.params.id);
     const vendor = await db.vendor.findUnique({
-      where: { id: req.params.id },
+      where: { id },
       include: {
         trustScore: true,
         trustHistory: { orderBy: { recordedAt: 'asc' } },
@@ -89,10 +92,10 @@ export async function createVendor(req: Request, res: Response) {
         tradeName: tradeName as string | undefined,
         email: email as string,
         phone: phone as string,
-        pan: pan as string | undefined,
-        gstin: gstin as string | undefined,
-        cin: cin as string | undefined,
-        udyamNumber: udyamNumber as string | undefined,
+        pan: pan ? (pan as string).trim().toUpperCase() : undefined,
+        gstin: gstin ? (gstin as string).trim().toUpperCase() : undefined,
+        cin: cin ? (cin as string).trim().toUpperCase() : undefined,
+        udyamNumber: udyamNumber ? (udyamNumber as string).trim().toUpperCase() : undefined,
         msmeCategory: (msmeCategory as 'MICRO' | 'SMALL' | 'MEDIUM') ?? 'MICRO',
         city: (city as string) ?? '',
         state: (state as string) ?? '',
@@ -101,15 +104,16 @@ export async function createVendor(req: Request, res: Response) {
         contactRole: (contactRole as string) ?? '',
         address: address as object | undefined,
         buyerFlagNote: buyerFlagNote as string | undefined,
+        status: 'PENDING_VERIFICATION',
       },
     });
 
     // Create a default PENDING verification record for each known identifier
     const verificationTypes: Array<'GSTIN' | 'PAN' | 'UDYAM' | 'CIN'> = [];
-    if (gstin) verificationTypes.push('GSTIN');
-    if (pan) verificationTypes.push('PAN');
-    if (udyamNumber) verificationTypes.push('UDYAM');
-    if (cin) verificationTypes.push('CIN');
+    if (vendor.gstin) verificationTypes.push('GSTIN');
+    if (vendor.pan) verificationTypes.push('PAN');
+    if (vendor.udyamNumber) verificationTypes.push('UDYAM');
+    if (vendor.cin) verificationTypes.push('CIN');
 
     if (verificationTypes.length > 0) {
       await db.verificationRecord.createMany({
@@ -123,15 +127,25 @@ export async function createVendor(req: Request, res: Response) {
         vendorId: vendor.id,
         kind: 'VERIFICATION',
         title: 'Vendor onboarded',
-        detail: `${vendor.legalName} added to MoolParakh. Status: DRAFT.`,
+        detail: `${vendor.legalName} added to MoolParakh. Verification pipeline triggered.`,
       },
     });
 
-    res.status(201).json(vendor);
+    // Run verification pipeline (Phase 1: calls KYB, updates verifications, auto-populates fields, recalculates trust score)
+    try {
+      const verifiedVendor = await runVendorVerificationPipeline(vendor.id);
+      res.status(201).json(verifiedVendor ?? vendor);
+      return;
+    } catch (pipelineErr) {
+      console.error('Verification pipeline error after vendor creation:', pipelineErr);
+      // Fallback: recalculate initial baseline trust score
+      await recalculateTrustScore(vendor.id);
+      res.status(201).json(vendor);
+      return;
+    }
   } catch (err: unknown) {
     console.error('createVendor error:', err);
     const msg = err instanceof Error ? err.message : 'Unknown error';
-    // Prisma unique constraint violation code
     if (msg.includes('Unique constraint')) {
       res.status(409).json({ error: 'A vendor with those identifiers already exists' });
       return;
@@ -140,9 +154,29 @@ export async function createVendor(req: Request, res: Response) {
   }
 }
 
+// ─── POST /api/vendors/:id/verify ───────────────────────────────────────────
+// Manually triggers or re-runs the full verification pipeline for a vendor
+export async function triggerVendorVerification(req: Request, res: Response) {
+  try {
+    const id = String(req.params.id);
+    const existing = await db.vendor.findUnique({ where: { id } });
+    if (!existing) {
+      res.status(404).json({ error: 'Vendor not found' });
+      return;
+    }
+
+    const updatedVendor = await runVendorVerificationPipeline(id);
+    res.json(updatedVendor);
+  } catch (err) {
+    console.error('triggerVendorVerification error:', err);
+    res.status(500).json({ error: 'Failed to run vendor verification pipeline' });
+  }
+}
+
 // ─── PATCH /api/vendors/:id ─────────────────────────────────────────────────
 export async function updateVendor(req: Request, res: Response) {
   try {
+    const id = String(req.params.id);
     const allowedFields = [
       'tradeName', 'phone', 'city', 'state', 'categories',
       'contactName', 'contactRole', 'address', 'buyerFlagNote',
@@ -157,9 +191,14 @@ export async function updateVendor(req: Request, res: Response) {
     }
 
     const vendor = await db.vendor.update({
-      where: { id: req.params.id },
+      where: { id },
       data,
     });
+
+    // If buyer flag or status changed, recalculate trust score
+    if ('buyerFlagNote' in req.body || 'status' in req.body) {
+      await recalculateTrustScore(id);
+    }
 
     res.json(vendor);
   } catch (err) {
@@ -171,7 +210,7 @@ export async function updateVendor(req: Request, res: Response) {
 // ─── GET /api/vendors/:id/relationships ─────────────────────────────────────
 export async function getRelationships(req: Request, res: Response) {
   try {
-    const { id } = req.params;
+    const id = String(req.params.id);
     const relationships = await db.supplierRelationship.findMany({
       where: {
         OR: [{ vendorAId: id }, { vendorBId: id }],
