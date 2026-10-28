@@ -6,6 +6,7 @@
 import '../models/notification.dart';
 import '../models/vendor.dart';
 import '../models/rfq.dart';
+import '../models/relationship.dart';
 
 final _now = DateTime.now();
 
@@ -728,3 +729,41 @@ final List<AppNotification> demoNotifications = [
     createdAt: _now.subtract(const Duration(hours: 6)),
   ),
 ];
+
+// ─────────────────────────────────────────────────────────────────────────────
+// DEMO SUPPLIER RELATIONSHIPS (Graph detection)
+// ─────────────────────────────────────────────────────────────────────────────
+
+final List<SupplierRelationship> demoRelationships = [
+  SupplierRelationship(
+    id: 'rel-1',
+    vendorAId: 'demo-v2',
+    vendorBId: 'demo-v6',
+    type: RelationshipType.sharedDirector,
+    value: 'Vikram Taneja (DIN: 07891234)',
+    vendorAName: 'Sunrise Metals Limited',
+    vendorBName: 'Tech Forge Industries',
+    createdAt: _now.subtract(const Duration(days: 90)),
+  ),
+  SupplierRelationship(
+    id: 'rel-2',
+    vendorAId: 'demo-v1',
+    vendorBId: 'demo-v3',
+    type: RelationshipType.sharedBankAccount,
+    value: 'HDFC Bank A/C ending ...8823',
+    vendorAName: 'Apex Components Pvt. Ltd.',
+    vendorBName: 'MR Engineering Works',
+    createdAt: _now.subtract(const Duration(days: 60)),
+  ),
+  SupplierRelationship(
+    id: 'rel-3',
+    vendorAId: 'demo-v4',
+    vendorBId: 'demo-v6',
+    type: RelationshipType.sharedAddress,
+    value: 'Plot 42, MIDC Industrial Area, Ambad, Nashik',
+    vendorAName: 'Global Textile Mills',
+    vendorBName: 'Tech Forge Industries',
+    createdAt: _now.subtract(const Duration(days: 30)),
+  ),
+];
+

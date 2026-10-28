@@ -212,6 +212,18 @@ class ApiClient {
     return res.data as Map<String, dynamic>;
   }
 
+  /// Triggers full Surepass KYB verification pipeline for a vendor
+  Future<Map<String, dynamic>> triggerVendorVerification(String id) async {
+    final res = await _dio.post('/vendors/$id/verify');
+    return res.data as Map<String, dynamic>;
+  }
+
+  /// Fetches shared director, bank account, or address relationships for a vendor
+  Future<List<Map<String, dynamic>>> getRelationships(String id) async {
+    final res = await _get('/vendors/$id/relationships');
+    return (res as List).cast<Map<String, dynamic>>();
+  }
+
   // ─── Documents ────────────────────────────────────────────────────────────
 
   /// PRD §5.7 — pre-signed URL flow step 1:
@@ -338,6 +350,11 @@ class ApiClient {
 
   Future<List<Map<String, dynamic>>> listDisruptionEvents() async {
     final res = await _get('/intelligence/events');
+    return (res as List).cast<Map<String, dynamic>>();
+  }
+
+  Future<List<Map<String, dynamic>>> getRiskLeaderboard() async {
+    final res = await _get('/intelligence/risk-leaderboard');
     return (res as List).cast<Map<String, dynamic>>();
   }
 

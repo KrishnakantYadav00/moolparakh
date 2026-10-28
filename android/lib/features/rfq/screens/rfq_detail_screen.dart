@@ -12,7 +12,6 @@
 //   "The client-side recomputation uses the already-loaded criterion scores."
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:shimmer/shimmer.dart';
@@ -451,7 +450,7 @@ class _BidRankingCard extends StatelessWidget {
               ).textTheme.bodySmall?.copyWith(color: AppColors.textSecondary),
             ),
             const SizedBox(height: 12),
-            ...scored.map((sb) => _BidRankRow(scored: sb)),
+            ...scored.map((sb) => _BidRankRow(scored: sb, all: scored)),
           ],
         ),
       ),
@@ -461,7 +460,8 @@ class _BidRankingCard extends StatelessWidget {
 
 class _BidRankRow extends StatelessWidget {
   final ScoredBid scored;
-  const _BidRankRow({required this.scored});
+  final List<ScoredBid> all;
+  const _BidRankRow({required this.scored, required this.all});
 
   @override
   Widget build(BuildContext context) {
@@ -478,69 +478,107 @@ class _BidRankRow extends StatelessWidget {
         ),
         borderRadius: BorderRadius.circular(8),
       ),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Rank badge
-          Container(
-            width: 28,
-            height: 28,
-            decoration: BoxDecoration(
-              color: isTop ? AppColors.verified : AppColors.textSecondary,
-              shape: BoxShape.circle,
-            ),
-            child: Center(
-              child: Text(
-                '#${scored.rank}',
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 11,
-                  fontWeight: FontWeight.w700,
+          Row(
+            children: [
+              // Rank badge
+              Container(
+                width: 28,
+                height: 28,
+                decoration: BoxDecoration(
+                  color: isTop ? AppColors.verified : AppColors.textSecondary,
+                  shape: BoxShape.circle,
                 ),
-              ),
-            ),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  bid.vendorName,
-                  style: const TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w500,
+                child: Center(
+                  child: Text(
+                    '#${scored.rank}',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
                 ),
-                Row(
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      _currencyFmt.format(bid.pricePerUnit),
-                      style: const TextStyle(fontSize: 12),
+                      bid.vendorName,
+                      style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                      ),
                     ),
-                    const Text(' · ', style: TextStyle(fontSize: 12)),
-                    Text(
-                      '${bid.deliveryDays}d',
-                      style: const TextStyle(fontSize: 12),
+                    Row(
+                      children: [
+                        Text(
+                          _currencyFmt.format(bid.pricePerUnit),
+                          style: const TextStyle(fontSize: 12),
+                        ),
+                        const Text(' · ', style: TextStyle(fontSize: 12)),
+                        Text(
+                          '${bid.deliveryDays}d',
+                          style: const TextStyle(fontSize: 12),
+                        ),
+                      ],
                     ),
                   ],
                 ),
-              ],
-            ),
-          ),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              TrustScorePill(score: bid.trustScoreAtBid),
-              const SizedBox(height: 2),
-              Text(
-                'Score ${(scored.composite * 100).toStringAsFixed(1)}',
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
-                  color: isTop ? AppColors.verified : AppColors.textSecondary,
-                ),
+              ),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  TrustScorePill(score: bid.trustScoreAtBid),
+                  const SizedBox(height: 2),
+                  Text(
+                    'Score ${(scored.composite * 100).toStringAsFixed(1)}',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: isTop ? AppColors.verified : AppColors.textSecondary,
+                    ),
+                  ),
+                ],
               ),
             ],
+          ),
+          const SizedBox(height: 8),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+            decoration: BoxDecoration(
+              color: isTop
+                  ? AppColors.verified.withAlpha(12)
+                  : const Color(0xFFF7F7F7),
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(
+                  Icons.auto_awesome,
+                  size: 13,
+                  color: isTop ? AppColors.verified : AppColors.textSecondary,
+                ),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    scored.explain(all),
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: isTop
+                          ? const Color(0xFF1B5E20)
+                          : AppColors.textSecondary,
+                      height: 1.3,
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
         ],
       ),

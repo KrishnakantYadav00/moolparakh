@@ -226,6 +226,60 @@ class BidEvaluator {
   }
 }
 
+extension ScoredBidExplanation on ScoredBid {
+  /// Deterministic explanation matching website ExplainabilityPanel (PRD Phase 3.1)
+  String explain(List<ScoredBid> all) {
+    if (all.length <= 1) {
+      return 'Ranks #$rank with composite score ${(composite * 100).toStringAsFixed(1)}/100.';
+    }
+    final bids = all.map((s) => s.bid).toList();
+
+    final priceRank = ([...bids]..sort((a, b) => a.pricePerUnit.compareTo(b.pricePerUnit)))
+            .indexWhere((b) => b.id == bid.id) +
+        1;
+    final deliveryRank = ([...bids]..sort((a, b) => a.deliveryDays.compareTo(b.deliveryDays)))
+            .indexWhere((b) => b.id == bid.id) +
+        1;
+    final trustRank = ([...bids]..sort((a, b) => b.trustScoreAtBid.compareTo(a.trustScoreAtBid)))
+            .indexWhere((b) => b.id == bid.id) +
+        1;
+
+    final strengths = <String>[];
+    if (trustRank == 1) {
+      strengths.add('highest Trust Score (${bid.trustScoreAtBid})');
+    } else if (trustRank == 2) {
+      strengths.add('strong trust rating');
+    }
+
+    if (deliveryRank == 1) {
+      strengths.add('fastest delivery (${bid.deliveryDays}d)');
+    } else if (deliveryRank == 2) {
+      strengths.add('fast delivery turnaround');
+    }
+
+    if (priceRank == 1) {
+      strengths.add('lowest unit price');
+    } else if (priceRank == 2) {
+      strengths.add('competitive pricing');
+    }
+
+    final tradeoffs = <String>[];
+    if (priceRank > 2) {
+      tradeoffs.add('higher unit price than competitors');
+    }
+    if (deliveryRank > 2) {
+      tradeoffs.add('${bid.deliveryDays}-day delivery window');
+    }
+    if (trustRank > 2) {
+      tradeoffs.add('lower trust score (${bid.trustScoreAtBid})');
+    }
+
+    final sText = strengths.isNotEmpty ? 'Combines ${strengths.join(' and ')}.' : '';
+    final tText = tradeoffs.isNotEmpty ? ' Trade-off: ${tradeoffs.join(', ')}.' : '';
+    return 'Ranks #$rank: $sText$tText';
+  }
+}
+
 class Rfq extends Equatable {
   final String id;
   final String reference;

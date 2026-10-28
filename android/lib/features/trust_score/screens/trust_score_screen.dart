@@ -89,7 +89,7 @@ class _ScoreSummaryCard extends StatelessWidget {
               StatusChip.riskLevel(ts.riskLevel.name.toUpperCase()),
               const SizedBox(height: 8),
               Text(
-                'Last calculated: ${ts != null ? _timeAgo(vendor.trustHistory.firstOrNull?.recordedAt ?? DateTime.now()) : "Never"}',
+                'Last calculated: ${_timeAgo(vendor.trustHistory.firstOrNull?.recordedAt ?? DateTime.now())}',
                 style: Theme.of(context).textTheme.bodySmall,
               ),
             ],
