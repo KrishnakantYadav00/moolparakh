@@ -11,7 +11,10 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 import '../../../core/api/api_client.dart';
+import '../../../core/models/rfq.dart';
 import '../../../core/providers/demo_mode_provider.dart';
+import '../../../core/providers/rfq_provider.dart';
+import '../../../core/services/demo_data.dart';
 import '../../../core/theme/app_theme.dart';
 
 class CreateRfqScreen extends ConsumerStatefulWidget {
@@ -77,12 +80,32 @@ class _CreateRfqScreenState extends ConsumerState<CreateRfqScreen> {
 
     final isDemo = ref.read(isDemoModeProvider);
     if (isDemo) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Demo mode: RFQ not saved to backend. Toggle off Demo Mode in Settings to enable.',
-          ),
+      final now = DateTime.now();
+      final newRfq = Rfq(
+        id: 'rfq-demo-${now.millisecondsSinceEpoch}',
+        reference: 'RFQ-${now.year}-${demoRfqs.length + 101}',
+        title: _titleCtrl.text.trim(),
+        status: RfqStatus.open,
+        spec: RfqSpec(
+          item: _itemCtrl.text.trim(),
+          standard: _standardCtrl.text.trim(),
+          grade: _gradeCtrl.text.trim(),
+          quantity: int.tryParse(_quantityCtrl.text.trim()) ?? 100,
+          unit: _unitCtrl.text.trim().isEmpty ? 'pcs' : _unitCtrl.text.trim(),
+          deliveryDays: int.tryParse(_deliveryDaysCtrl.text.trim()) ?? 14,
+          deliveryLocation: _deliveryLocationCtrl.text.trim(),
+          qualityNotes: _qualityNotesCtrl.text.trim(),
         ),
+        freeText: _freeTextCtrl.text.trim().isEmpty ? null : _freeTextCtrl.text.trim(),
+        suppliersNotified: demoVendors.length,
+        closesAt: _closesAt!,
+        createdAt: now,
+        bids: const [],
+      );
+      demoRfqs.insert(0, newRfq);
+      ref.invalidate(rfqListProvider);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('RFQ published to demo network')),
       );
       context.pop();
       return;
@@ -111,6 +134,8 @@ class _CreateRfqScreenState extends ConsumerState<CreateRfqScreen> {
         'freeText': _freeTextCtrl.text.trim(),
         'closesAt': _closesAt!.toIso8601String(),
       });
+
+      ref.invalidate(rfqListProvider);
 
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(

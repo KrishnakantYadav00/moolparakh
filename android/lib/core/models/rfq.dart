@@ -113,15 +113,27 @@ class Bid extends Equatable {
   });
 
   factory Bid.fromJson(Map<String, dynamic> j) => Bid(
-    id: j['id'] as String,
-    rfqId: j['rfqId'] as String,
-    vendorId: j['vendorId'] as String,
-    vendorName: j['vendorName'] as String,
-    pricePerUnit: (j['pricePerUnit'] as num).toDouble(),
-    deliveryDays: (j['deliveryDays'] as num).toInt(),
-    trustScoreAtBid: (j['trustScoreAtBid'] as num).toInt(),
+    id: j['id']?.toString() ?? '',
+    rfqId: j['rfqId']?.toString() ?? j['rfq_id']?.toString() ?? '',
+    vendorId: j['vendorId']?.toString() ?? j['vendor_id']?.toString() ?? '',
+    vendorName:
+        j['vendorName']?.toString() ?? j['vendor_name']?.toString() ?? '',
+    pricePerUnit: (j['pricePerUnit'] as num?)?.toDouble() ??
+        (j['price_per_unit'] as num?)?.toDouble() ??
+        0.0,
+    deliveryDays: (j['deliveryDays'] as num?)?.toInt() ??
+        (j['delivery_days'] as num?)?.toInt() ??
+        0,
+    trustScoreAtBid: (j['trustScoreAtBid'] as num?)?.toInt() ??
+        (j['trust_score_at_bid'] as num?)?.toInt() ??
+        0,
     notes: j['notes'] as String?,
-    submittedAt: DateTime.parse(j['submittedAt'] as String),
+    submittedAt: DateTime.tryParse(
+          j['submittedAt']?.toString() ??
+              j['submitted_at']?.toString() ??
+              '',
+        ) ??
+        DateTime.now(),
   );
 
   @override
@@ -308,18 +320,38 @@ class Rfq extends Equatable {
   });
 
   factory Rfq.fromJson(Map<String, dynamic> j) => Rfq(
-    id: j['id'] as String,
-    reference: j['reference'] as String,
-    title: j['title'] as String,
-    status: RfqStatusX.fromString(j['status'] as String),
-    spec: RfqSpec.fromJson(j['spec'] as Map<String, dynamic>),
-    freeText: j['freeText'] as String?,
-    suppliersNotified: (j['suppliersNotified'] as num?)?.toInt() ?? 0,
-    closesAt: DateTime.parse(j['closesAt'] as String),
-    awardedVendorId: j['awardedVendorId'] as String?,
-    createdAt: DateTime.parse(j['createdAt'] as String),
-    bids:
-        (j['bids'] as List<dynamic>?)
+    id: j['id']?.toString() ?? '',
+    reference: j['reference']?.toString() ?? '',
+    title: j['title']?.toString() ?? '',
+    status: RfqStatusX.fromString((j['status'] ?? 'DRAFT').toString()),
+    spec: j['spec'] is Map<String, dynamic>
+        ? RfqSpec.fromJson(j['spec'] as Map<String, dynamic>)
+        : const RfqSpec(
+            item: '',
+            standard: '',
+            grade: '',
+            quantity: 0,
+            unit: '',
+            deliveryDays: 0,
+            deliveryLocation: '',
+            qualityNotes: '',
+          ),
+    freeText: (j['freeText'] ?? j['free_text']) as String?,
+    suppliersNotified: ((j['suppliersNotified'] ?? j['suppliers_notified'])
+            as num?)
+        ?.toInt() ??
+        0,
+    closesAt: DateTime.tryParse(
+          j['closesAt']?.toString() ?? j['closes_at']?.toString() ?? '',
+        ) ??
+        DateTime.now().add(const Duration(days: 7)),
+    awardedVendorId:
+        (j['awardedVendorId'] ?? j['awarded_vendor_id']) as String?,
+    createdAt: DateTime.tryParse(
+          j['createdAt']?.toString() ?? j['created_at']?.toString() ?? '',
+        ) ??
+        DateTime.now(),
+    bids: (j['bids'] as List<dynamic>?)
             ?.map((e) => Bid.fromJson(e as Map<String, dynamic>))
             .toList() ??
         [],
