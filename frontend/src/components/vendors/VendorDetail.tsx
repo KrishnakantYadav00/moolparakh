@@ -1,10 +1,12 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   ArrowLeft,
   CircleAlert,
   CircleCheck,
   CircleDashed,
   Link2,
+  RefreshCw,
+  ShieldCheck,
 } from 'lucide-react';
 import {
   CartesianGrid,
@@ -30,9 +32,8 @@ import { ChartCardTitle } from '@/components/ui/ChartCardTitle';
 import { complianceTone, vendorComplianceState } from '@/utils/compliance';
 import { expiryBucket, formatDate, formatShortDate, relativeDays } from '@/utils/format';
 import { trustBand, trustBandColor } from '@/utils/trustScore';
-
-const disruptionEvents: DisruptionEvent[] = [];
-const relationshipsForVendor = (_id: string): SupplierRelationship[] => [];
+import { api } from '@/lib/api';
+import { mapDisruptionEvent, mapRelationship, mapVendor } from '@/lib/mappers';
 
 const TABS = ['Overview', 'Verification', 'Compliance', 'Risk History', 'Activity'] as const;
 type Tab = (typeof TABS)[number];
@@ -50,21 +51,60 @@ interface VendorDetailProps {
   vendor: Vendor;
   onBack: () => void;
   onViewRelationship: (vendorId: string) => void;
+  onVendorUpdated?: (vendor: Vendor) => void;
 }
 
-export function VendorDetail({ vendor, onBack, onViewRelationship }: VendorDetailProps) {
+export function VendorDetail({ vendor: initialVendor, onBack, onViewRelationship, onVendorUpdated }: VendorDetailProps) {
+  const [vendor, setVendor] = useState<Vendor>(initialVendor);
+  const [verifying, setVerifying] = useState(false);
   const [tab, setTab] = useState<Tab>('Overview');
+  const [relationships, setRelationships] = useState<SupplierRelationship[]>([]);
+  const [disruptionEvents, setDisruptionEvents] = useState<DisruptionEvent[]>([]);
+
+  useEffect(() => {
+    setVendor(initialVendor);
+  }, [initialVendor]);
+
   const compliance = vendorComplianceState(vendor);
   const band = trustBand(vendor.trustScore);
-  const relationships = relationshipsForVendor(vendor.id);
-  const events = disruptionEvents.filter((event) =>
-    event.affectedVendorIds.includes(vendor.id),
-  );
+
+  // ─── Fetch relationships and disruption events for this vendor ────────────
+  useEffect(() => {
+    api.vendors.relationships(vendor.id)
+      .then(data => setRelationships(data.map(mapRelationship)))
+      .catch(err => console.error('Failed to load relationships:', err));
+
+    api.intelligence.eventsForVendor(vendor.id)
+      .then(data => setDisruptionEvents(data.map(mapDisruptionEvent)))
+      .catch(err => console.error('Failed to load vendor disruption events:', err));
+  }, [vendor.id]);
+
+  const handleRunVerification = async () => {
+    setVerifying(true);
+    try {
+      const raw = await api.vendors.verify(vendor.id);
+      const mapped = mapVendor(raw);
+      setVendor(mapped);
+      onVendorUpdated?.(mapped);
+    } catch (err) {
+      console.error('Failed to run verification:', err);
+    } finally {
+      setVerifying(false);
+    }
+  };
 
   const history = vendor.trustHistory.map((point) => ({
     date: formatShortDate(point.date),
     score: point.score,
   }));
+
+  // Find related vendor names for display
+  const relatedVendorNames = relationships.map((rel) => {
+    if (rel.vendorAId === vendor.id) {
+      return rel.vendorBName ?? rel.vendorBId;
+    }
+    return rel.vendorAName ?? rel.vendorAId;
+  });
 
   return (
     <div className="space-y-5">
@@ -107,11 +147,7 @@ export function VendorDetail({ vendor, onBack, onViewRelationship }: VendorDetai
             <p className="text-sm text-navy">
               Potential relationship with{' '}
               <span className="font-semibold">
-                {relationships
-                  .map((rel) =>
-                    rel.vendorAId === vendor.id ? rel.vendorBId : rel.vendorAId,
-                  )
-                  .join(', ')}
+                {relatedVendorNames.join(', ')}
               </span>{' '}
               — {relationships[0].type.toLowerCase()}.
             </p>
@@ -191,6 +227,23 @@ export function VendorDetail({ vendor, onBack, onViewRelationship }: VendorDetai
         <Card
           title="Verification"
           subtitle="Identity checks returned by the KYB service on the last run."
+          action={
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={handleRunVerification}
+              disabled={verifying}
+              icon={
+                verifying ? (
+                  <RefreshCw size={14} className="animate-spin" />
+                ) : (
+                  <ShieldCheck size={14} />
+                )
+              }
+            >
+              {verifying ? 'Verifying with Surepass...' : 'Re-verify with Surepass'}
+            </Button>
+          }
         >
           <ul className="divide-y divide-hairline">
             {(
@@ -206,7 +259,7 @@ export function VendorDetail({ vendor, onBack, onViewRelationship }: VendorDetai
                   {verificationIcon(state)}
                   <div>
                     <p className="text-base font-medium text-navy">{label}</p>
-                    <p className="font-mono text-sm text-muted">{value}</p>
+                    <p className="font-mono text-sm text-muted">{value || 'Not provided'}</p>
                   </div>
                 </div>
                 <Badge tone={verificationTone(state)}>{state}</Badge>
@@ -306,13 +359,13 @@ export function VendorDetail({ vendor, onBack, onViewRelationship }: VendorDetai
             title="Matched disruption events"
             subtitle="Events from the supplier intelligence feed linked to this vendor."
           >
-            {events.length === 0 ? (
+            {disruptionEvents.length === 0 ? (
               <p className="text-base text-muted">
                 No disruption events currently matched to this vendor.
               </p>
             ) : (
               <ul className="space-y-3">
-                {events.map((event) => (
+                {disruptionEvents.map((event) => (
                   <li key={event.id} className="flex items-start gap-3">
                     <RiskBadge level={event.severity} />
                     <div>
@@ -327,6 +380,28 @@ export function VendorDetail({ vendor, onBack, onViewRelationship }: VendorDetai
               </ul>
             )}
           </Card>
+
+          {relationships.length > 0 && (
+            <Card
+              title="Supplier relationships"
+              subtitle="Shared attributes detected across registered vendor data."
+            >
+              <ul className="space-y-3">
+                {relationships.map((rel) => {
+                  const relatedName = rel.vendorAId === vendor.id
+                    ? (rel.vendorBName ?? rel.vendorBId)
+                    : (rel.vendorAName ?? rel.vendorAId);
+                  return (
+                    <li key={rel.id} className="rounded-md border border-risk-medium/30 bg-risk-medium-bg p-3">
+                      <p className="text-sm font-semibold text-navy">{rel.type}</p>
+                      <p className="text-sm text-muted">Shared value: <span className="font-medium">{rel.value}</span></p>
+                      <p className="text-xs text-muted mt-1">Related vendor: <span className="font-medium text-navy">{relatedName}</span></p>
+                    </li>
+                  );
+                })}
+              </ul>
+            </Card>
+          )}
         </div>
       )}
 

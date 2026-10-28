@@ -1,0 +1,32 @@
+# Node modules (reinstalled inside container)
+**/node_modules
+
+# Frontend build artifacts (built inside container)
+frontend/dist
+
+# Backend compiled output
+backend/dist
+
+# Environment files (pass via -e flags or docker-compose)
+**/.env
+**/.env.local
+
+# Dev/test files
+**/*.test.ts
+**/*.spec.ts
+
+# Logs
+**/*.log
+**/npm-debug.log*
+
+# Git
+.git
+.gitignore
+
+# IDE
+.vscode
+.idea
+
+# Docker itself
+Dockerfile
+docker-compose*.yml

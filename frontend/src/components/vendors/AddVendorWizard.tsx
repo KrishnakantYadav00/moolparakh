@@ -6,6 +6,8 @@ import { Modal } from '@/components/ui/Overlays';
 import { TrustRing } from '@/components/ui/TrustVisuals';
 import { TRUST_LABELS, trustBreakdown } from '@/utils/trustScore';
 import { DEMO_NOW } from '@/utils/format';
+import { api } from '@/lib/api';
+import { mapVendor } from '@/lib/mappers';
 
 const GSTIN_PATTERN = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][0-9A-Z]Z[0-9A-Z]$/i;
 
@@ -103,18 +105,39 @@ export function AddVendorWizard({ open, onClose, onCreate }: AddVendorWizardProp
 
   const verifiedDocs = DOCUMENTS.filter((doc) => docs[doc.type] === 'Verified').length;
 
-  const createVendor = () => {
+  const createVendor = async () => {
     setSubmitting(true);
-    schedule(() => {
+    const cleanGstin = form.gstin.trim().toUpperCase();
+    const cleanPan = form.pan.trim().toUpperCase() || cleanGstin.slice(2, 12).toUpperCase();
+    const cleanCin = form.cin.trim().toUpperCase();
+    const cleanName = form.name.trim() || 'New Vendor Pvt. Ltd.';
+    const email = `vendor.${cleanGstin ? cleanGstin.slice(-6).toLowerCase() : Date.now()}@moolparakh-procure.in`;
+
+    try {
+      const rawVendor = await api.vendors.create({
+        legalName: cleanName,
+        email,
+        phone: '+91-9876543210',
+        gstin: cleanGstin || undefined,
+        pan: cleanPan || undefined,
+        cin: cleanCin && cleanCin !== 'NOT PROVIDED' ? cleanCin : undefined,
+        udyamNumber: 'UDYAM-MH-01-0098765',
+      });
+
+      const mapped = mapVendor(rawVendor);
+      onCreate(mapped);
+      onClose();
+    } catch (err) {
+      console.warn('API vendor creation failed, falling back to local vendor model:', err);
       const id = `v-new-${Date.now()}`;
       const today = DEMO_NOW.toISOString().slice(0, 10);
       const vendor: Vendor = {
         id,
-        name: form.name.trim() || 'New Vendor Pvt. Ltd.',
-        gstin: form.gstin.trim().toUpperCase(),
-        pan: form.pan.trim().toUpperCase() || form.gstin.slice(2, 12).toUpperCase(),
-        cin: form.cin.trim().toUpperCase() || 'Not provided',
-        udyamNumber: 'UDYAM-XX-00-0000000',
+        name: cleanName,
+        gstin: cleanGstin,
+        pan: cleanPan,
+        cin: cleanCin || 'Not provided',
+        udyamNumber: 'UDYAM-MH-01-0098765',
         msmeCategory: 'Small',
         city: 'Pune',
         state: 'Maharashtra',
@@ -148,14 +171,6 @@ export function AddVendorWizard({ open, onClose, onCreate }: AddVendorWizardProp
             issuedOn: today,
             expiresOn: '2027-03-31',
           },
-          {
-            id: `${id}-c1`,
-            vendorId: id,
-            type: 'Udyam Certificate',
-            number: 'UDY/2026/00001',
-            issuedOn: today,
-            expiresOn: '2029-03-11',
-          },
         ],
         events: [
           {
@@ -175,7 +190,9 @@ export function AddVendorWizard({ open, onClose, onCreate }: AddVendorWizardProp
       };
       onCreate(vendor);
       onClose();
-    }, 900);
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const stepTitles = ['Vendor Identity', 'Compliance Documents', 'Verification Summary'];

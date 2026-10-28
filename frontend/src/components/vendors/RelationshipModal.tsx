@@ -41,14 +41,20 @@ export function RelationshipModal({
           <div className="rounded-md border border-hairline p-3">
             <dt className="text-xs text-muted">Supplier A</dt>
             <dd className="text-base font-medium text-navy">
-              {relationship.vendorAId}
+              {relationship.vendorAName ?? relationship.vendorAId}
             </dd>
+            {relationship.vendorAName && (
+              <dd className="text-xs font-mono text-muted mt-0.5">{relationship.vendorAId}</dd>
+            )}
           </div>
           <div className="rounded-md border border-hairline p-3">
             <dt className="text-xs text-muted">Supplier B</dt>
             <dd className="text-base font-medium text-navy">
-              {relationship.vendorBId}
+              {relationship.vendorBName ?? relationship.vendorBId}
             </dd>
+            {relationship.vendorBName && (
+              <dd className="text-xs font-mono text-muted mt-0.5">{relationship.vendorBId}</dd>
+            )}
           </div>
         </div>
       </dl>

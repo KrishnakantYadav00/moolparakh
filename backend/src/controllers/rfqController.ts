@@ -23,8 +23,9 @@ export async function listRfqs(_req: Request, res: Response) {
 // ─── GET /api/rfqs/:id ──────────────────────────────────────────────────────
 export async function getRfq(req: Request, res: Response) {
   try {
+    const id = String(req.params.id);
     const rfq = await db.rfq.findUnique({
-      where: { id: req.params.id },
+      where: { id },
       include: {
         bids: {
           include: { vendor: { select: { id: true, legalName: true, trustScore: true } } },
@@ -100,9 +101,10 @@ export async function submitBid(req: Request, res: Response) {
       return;
     }
 
+    const rfqId = String(req.params.id);
     const bid = await db.bid.create({
       data: {
-        rfqId: req.params.id,
+        rfqId,
         vendorId: vendorId as string,
         vendorName: vendor.legalName,
         pricePerUnit: Number(pricePerUnit),
@@ -133,8 +135,9 @@ export async function awardBid(req: Request, res: Response) {
       return;
     }
 
+    const id = String(req.params.id);
     const rfq = await db.rfq.update({
-      where: { id: req.params.id },
+      where: { id },
       data: { status: 'COMPLETED', awardedVendorId: vendorId },
     });
     res.json(rfq);

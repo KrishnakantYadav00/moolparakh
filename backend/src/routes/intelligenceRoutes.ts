@@ -5,6 +5,7 @@ import * as ic from '@/controllers/intelligenceController.js';
 const router = Router();
 
 router.get('/events', ic.listEvents);
+router.get('/risk-leaderboard', ic.riskLeaderboard);
 router.get('/events/:vendorId', ic.eventsForVendor);
 router.post('/events', ic.createEvent);
 

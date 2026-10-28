@@ -18,8 +18,9 @@ export async function listNotifications(_req: Request, res: Response) {
 // ─── PATCH /api/notifications/:id/read ──────────────────────────────────────
 export async function markRead(req: Request, res: Response) {
   try {
+    const id = String(req.params.id);
     const notification = await db.notification.update({
-      where: { id: req.params.id },
+      where: { id },
       data: { read: true },
     });
     res.json(notification);

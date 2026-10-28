@@ -3,6 +3,8 @@ import type { Request, Response } from 'express';
 import { randomUUID } from 'crypto';
 import db from '@/lib/db.js';
 import { generatePresignedUploadUrl, r2Enabled } from '@/lib/r2.js';
+import { recalculateTrustScore } from '@/services/trustEngine.js';
+import { runBankVerification } from '@/services/verificationService.js';
 
 // ─── POST /api/documents/presign ────────────────────────────────────────────
 // Returns a pre-signed R2 PUT URL.
@@ -36,9 +38,9 @@ export async function presignUpload(req: Request, res: Response) {
 
 // ─── POST /api/documents ─────────────────────────────────────────────────────
 // Record document metadata after the client has PUT to R2.
-// Body: { vendorId, fileKey, mimeType, fileSize, type }
+// Body: { vendorId, fileKey, mimeType, fileSize, type, accountNumber?, ifsc? }
 export async function recordDocument(req: Request, res: Response) {
-  const { vendorId, fileKey, mimeType, fileSize, type } = req.body as Record<string, unknown>;
+  const { vendorId, fileKey, mimeType, fileSize, type, accountNumber, ifsc } = req.body as Record<string, unknown>;
 
   if (!vendorId || !fileKey || !mimeType || !fileSize || !type) {
     res.status(400).json({ error: 'vendorId, fileKey, mimeType, fileSize, and type are required' });
@@ -48,11 +50,19 @@ export async function recordDocument(req: Request, res: Response) {
   try {
     const doc = await db.document.create({
       data: {
-        vendorId: vendorId as string,
-        fileKey: fileKey as string,
-        mimeType: mimeType as string,
+        vendorId: String(vendorId),
+        fileKey: String(fileKey),
+        mimeType: String(mimeType),
         fileSize: Number(fileSize),
-        type: type as 'PAN_CARD' | 'GST_CERTIFICATE' | 'UDYAM_CERTIFICATE' | 'BANK_STATEMENT' | 'CANCELLED_CHEQUE' | 'ISO_CERTIFICATE' | 'INSURANCE_DOCUMENT' | 'OTHER',
+        type: type as
+          | 'PAN_CARD'
+          | 'GST_CERTIFICATE'
+          | 'UDYAM_CERTIFICATE'
+          | 'BANK_STATEMENT'
+          | 'CANCELLED_CHEQUE'
+          | 'ISO_CERTIFICATE'
+          | 'INSURANCE_DOCUMENT'
+          | 'OTHER',
         status: 'UPLOADED',
       },
     });
@@ -60,12 +70,21 @@ export async function recordDocument(req: Request, res: Response) {
     // Audit event
     await db.vendorEvent.create({
       data: {
-        vendorId: vendorId as string,
+        vendorId: String(vendorId),
         kind: 'DOCUMENT',
         title: 'Document uploaded',
         detail: `Document of type ${type} uploaded (key: ${fileKey}).`,
       },
     });
+
+    // If bank document is uploaded and details provided, trigger bank verification
+    if (
+      (type === 'BANK_STATEMENT' || type === 'CANCELLED_CHEQUE') &&
+      accountNumber &&
+      ifsc
+    ) {
+      await runBankVerification(String(vendorId), String(accountNumber), String(ifsc));
+    }
 
     res.status(201).json(doc);
   } catch (err) {
@@ -77,8 +96,9 @@ export async function recordDocument(req: Request, res: Response) {
 // ─── GET /api/documents/:vendorId ────────────────────────────────────────────
 export async function listDocuments(req: Request, res: Response) {
   try {
+    const vendorId = String(req.params.vendorId);
     const docs = await db.document.findMany({
-      where: { vendorId: req.params.vendorId },
+      where: { vendorId },
       orderBy: { uploadedAt: 'desc' },
     });
     res.json(docs);
@@ -92,6 +112,7 @@ export async function listDocuments(req: Request, res: Response) {
 // Body: { status, certificateNumber?, issuingAuthority?, issueDate?, expirationDate?, confidence?, rawOcrText?, extractedData? }
 export async function updateDocumentStatus(req: Request, res: Response) {
   try {
+    const id = String(req.params.id);
     const {
       status,
       certificateNumber,
@@ -104,7 +125,7 @@ export async function updateDocumentStatus(req: Request, res: Response) {
     } = req.body as Record<string, unknown>;
 
     const doc = await db.document.update({
-      where: { id: req.params.id },
+      where: { id },
       data: {
         status: status as 'UPLOADED' | 'PROCESSING_OCR' | 'PARSED' | 'FAILED',
         certificateNumber: certificateNumber as string | undefined,
@@ -116,6 +137,11 @@ export async function updateDocumentStatus(req: Request, res: Response) {
         extractedData: extractedData as object | undefined,
       },
     });
+
+    // If expirationDate was provided, recalculate vendor trust score
+    if (expirationDate) {
+      await recalculateTrustScore(doc.vendorId);
+    }
 
     res.json(doc);
   } catch (err) {

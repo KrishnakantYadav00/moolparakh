@@ -16,7 +16,7 @@ import { RfqPage } from '@/components/rfq/RfqPage';
 import { RfqWizard } from '@/components/rfq/RfqWizard';
 import { BidComparison } from '@/components/rfq/BidComparison';
 import { api } from '@/lib/api';
-import { mapVendor, mapRfq, mapNotification } from '@/lib/mappers';
+import { mapVendor, mapRfq, mapNotification, mapRelationship } from '@/lib/mappers';
 
 const PAGE_META: Record<ViewKey, { title: string; subtitle: string }> = {
   overview: { title: 'Overview', subtitle: 'Procurement dashboard' },
@@ -112,6 +112,16 @@ export default function App() {
       ),
     );
 
+  // ─── View relationship — fetch relationships for vendor then show first ────
+  const viewRelationship = (vendorId: string) => {
+    api.vendors.relationships(vendorId)
+      .then(data => {
+        const mapped = data.map(mapRelationship);
+        if (mapped.length > 0) setRelationship(mapped[0]);
+      })
+      .catch(err => console.error('Failed to load relationships:', err));
+  };
+
   const meta = (() => {
     if (view === 'vendors' && selectedVendor) {
       return { title: selectedVendor.name, subtitle: 'Vendor profile' };
@@ -142,9 +152,12 @@ export default function App() {
           <VendorDetail
             vendor={selectedVendor}
             onBack={() => setSelectedVendorId(null)}
-            onViewRelationship={() =>
-              setRelationship(null)  // relationships loaded per-vendor via API when needed
-            }
+            onViewRelationship={viewRelationship}
+            onVendorUpdated={(updatedVendor) => {
+              setVendors((curr) =>
+                curr.map((v) => (v.id === updatedVendor.id ? updatedVendor : v)),
+              );
+            }}
           />
         ) : (
           <VendorsPage
