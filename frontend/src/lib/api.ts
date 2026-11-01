@@ -127,6 +127,13 @@ export interface ApiBid {
   trustScoreAtBid: number;
   notes: string | null;
   submittedAt: string;
+  priceSanity?: {
+    flag: string | null;
+    benchmarkPrice: number;
+    deviationPercent: number;
+    isAnomalous: boolean;
+    benchmarkSource: string;
+  };
 }
 
 export interface ApiRfq {
@@ -268,6 +275,11 @@ export const api = {
     get: (id: string) => req<ApiRfq>(`/rfqs/${id}`),
     create: (body: Record<string, unknown>) =>
       req<ApiRfq>('/rfqs', { method: 'POST', body: JSON.stringify(body) }),
+    parseSpec: (freeText: string) =>
+      req<{ spec: Record<string, unknown> }>('/rfqs/parse-spec', {
+        method: 'POST',
+        body: JSON.stringify({ freeText }),
+      }),
     submitBid: (rfqId: string, body: Record<string, unknown>) =>
       req<ApiBid>(`/rfqs/${rfqId}/bids`, { method: 'POST', body: JSON.stringify(body) }),
     award: (rfqId: string, vendorId: string) =>

@@ -1,12 +1,14 @@
 import type { Bid, BidWeights, ScoredBid } from '@/types';
 
-/** PRD default criterion weights. */
+/** PRD default criterion weights: Price 45%, Delivery 30%, Trust 25%. */
 export const DEFAULT_WEIGHTS: BidWeights = { price: 45, delivery: 30, trust: 25 };
 
 /**
- * Normalisation: price and delivery are "lower is better", so each bid is
- * scored against the best bid received (best = 1.00). Trust is already a
- * 0–100 scale, so it is divided by 100. Every score lands in (0, 1].
+ * Normalisation:
+ * - Price: lower is better, normalised to 0–100 (bestPrice / bid.price * 100)
+ * - Delivery: faster is better, normalised to 0–100 (bestDelivery / bid.delivery * 100)
+ * - Trust: live Trust Score directly on 0–100 scale
+ * - Weighted composite = (priceScore × W1 + deliveryScore × W2 + trustScore × W3) / 100
  */
 export function scoreBids(bids: Bid[], weights: BidWeights): ScoredBid[] {
   if (bids.length === 0) return [];
@@ -14,29 +16,29 @@ export function scoreBids(bids: Bid[], weights: BidWeights): ScoredBid[] {
   const bestPrice = Math.min(...bids.map((b) => b.pricePerUnit));
   const bestDelivery = Math.min(...bids.map((b) => b.deliveryDays));
 
-  const w = {
-    price: weights.price / 100,
-    delivery: weights.delivery / 100,
-    trust: weights.trust / 100,
-  };
-
   const scored = bids.map((bid) => {
-    const priceScore = bestPrice / bid.pricePerUnit;
-    const deliveryScore = bestDelivery / bid.deliveryDays;
-    const trustNormalised = bid.trustScore / 100;
+    // Best gets 100, others scale proportionally
+    const priceScore = Number(((bestPrice / bid.pricePerUnit) * 100).toFixed(1));
+    const deliveryScore = Number(((bestDelivery / bid.deliveryDays) * 100).toFixed(1));
+    const trustNormalised = Number(bid.trustScore.toFixed(1));
+
     const contributions = {
-      price: priceScore * w.price,
-      delivery: deliveryScore * w.delivery,
-      trust: trustNormalised * w.trust,
+      price: Number(((priceScore * weights.price) / 100).toFixed(2)),
+      delivery: Number(((deliveryScore * weights.delivery) / 100).toFixed(2)),
+      trust: Number(((trustNormalised * weights.trust) / 100).toFixed(2)),
     };
+
+    const composite = Number(
+      (contributions.price + contributions.delivery + contributions.trust).toFixed(1),
+    );
+
     return {
       ...bid,
       priceScore,
       deliveryScore,
       trustNormalised,
       contributions,
-      composite:
-        contributions.price + contributions.delivery + contributions.trust,
+      composite,
       rank: 0,
     };
   });
@@ -82,8 +84,6 @@ function ordinal(rank: number): string {
 
 /**
  * Natural-language explanation generated deterministically from the numbers.
- * No language model is involved — the sentence is assembled from the bid's
- * rank on each individual criterion.
  */
 export function explainBid(bid: ScoredBid, all: ScoredBid[]): string {
   const rankBy = (key: 'pricePerUnit' | 'deliveryDays' | 'trustScore') => {
@@ -127,7 +127,7 @@ export function explainBid(bid: ScoredBid, all: ScoredBid[]): string {
       : '';
 
   const dominant = dominantCriterion(bid);
-  const closing = ` Under the current weighting, ${dominant} contributes the most to its composite score of ${bid.composite.toFixed(2)}.`;
+  const closing = ` Under the current weighting, ${dominant} contributes the most to its composite score of ${bid.composite.toFixed(1)} / 100.`;
 
   return lead + counter + closing;
 }

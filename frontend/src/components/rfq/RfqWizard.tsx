@@ -4,6 +4,8 @@ import type { Rfq, RfqSpec, Vendor } from '@/types';
 import { Badge, Button } from '@/components/ui/Primitives';
 import { Modal } from '@/components/ui/Overlays';
 import { DEMO_NOW } from '@/utils/format';
+import { api } from '@/lib/api';
+import { mapRfq } from '@/lib/mappers';
 
 const EXAMPLE =
   'I need 500 M8 hex bolts, A2 grade stainless steel,\nrequired within 14 days at Pune.';
@@ -115,39 +117,61 @@ export function RfqWizard({ open, onClose, vendors, onCreate }: RfqWizardProps) 
 
   const matched = spec ? matchSuppliers(spec, vendors) : [];
 
-  const runParse = () => {
+  const runParse = async () => {
     setParsing(true);
-    timers.current.push(
-      window.setTimeout(() => {
+    try {
+      const res = await api.rfqs.parseSpec(text);
+      if (res?.spec) {
+        setSpec(res.spec as unknown as RfqSpec);
+      } else {
         setSpec(parseRequirement(text));
-        setParsing(false);
-        setStep(2);
-      }, 1200),
-    );
+      }
+    } catch (err) {
+      console.warn('API spec parsing fallback:', err);
+      setSpec(parseRequirement(text));
+    } finally {
+      setParsing(false);
+      setStep(2);
+    }
   };
 
-  const broadcast = () => {
+  const broadcast = async () => {
     if (!spec) return;
     setBroadcasting(true);
-    timers.current.push(
-      window.setTimeout(() => {
-        setBroadcasting(false);
-        setSent(true);
-        const id = `rfq-${Date.now()}`;
-        onCreate({
-          id,
-          reference: `RFQ-2026-${String(Math.floor(Math.random() * 900) + 100)}`,
-          title: `${spec.quantity} ${spec.unit} · ${spec.item}`,
-          status: 'OPEN',
-          freeText: text,
-          spec,
-          suppliersNotified: matched.length,
-          createdOn: DEMO_NOW.toISOString().slice(0, 10),
-          closesInHours: 96,
-          bids: [],
-        });
-      }, 1200),
-    );
+    const reference = `RFQ-2026-${String(Math.floor(Math.random() * 900) + 100)}`;
+    const title = `${spec.quantity} ${spec.unit} · ${spec.item}`;
+    const closesAt = new Date(Date.now() + 96 * 3600 * 1000).toISOString();
+
+    try {
+      const created = await api.rfqs.create({
+        reference,
+        title,
+        spec,
+        freeText: text,
+        closesAt,
+        suppliersNotified: matched.length,
+      });
+
+      setBroadcasting(false);
+      setSent(true);
+      onCreate(mapRfq(created));
+    } catch (err) {
+      console.warn('Backend RFQ creation fallback:', err);
+      setBroadcasting(false);
+      setSent(true);
+      onCreate({
+        id: `rfq-${Date.now()}`,
+        reference,
+        title,
+        status: 'OPEN',
+        freeText: text,
+        spec,
+        suppliersNotified: matched.length,
+        createdOn: DEMO_NOW.toISOString().slice(0, 10),
+        closesInHours: 96,
+        bids: [],
+      });
+    }
   };
 
   const updateSpec = (key: keyof RfqSpec, value: string) => {

@@ -188,6 +188,7 @@ export function mapBid(raw: ApiBid): Bid {
     trustScore:       raw.trustScoreAtBid,
     submittedHoursAgo: hoursAgo(raw.submittedAt),
     notes:            raw.notes ?? '',
+    priceSanity:      raw.priceSanity,
   };
 }
 

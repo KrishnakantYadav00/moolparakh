@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { ArrowLeft, CheckCircle2, Inbox, TriangleAlert } from 'lucide-react';
 import type { BidWeights, Rfq, ScoredBid, SupplierRelationship } from '@/types';
 import { Badge, Button, Card, EmptyState } from '@/components/ui/Primitives';
@@ -7,11 +7,8 @@ import { ExplainabilityPanel } from '@/components/rfq/ExplainabilityPanel';
 import { RelationshipModal } from '@/components/vendors/RelationshipModal';
 import { DEFAULT_WEIGHTS, rebalanceWeights, scoreBids } from '@/utils/bidEvaluation';
 import { formatRupees } from '@/utils/format';
-import type { SupplierRelationship as SR } from '@/types';
-
-// Relationship data will be wired to /api/relationships in a future step
-const supplierRelationships: SR[] = [];
-
+import { api } from '@/lib/api';
+import { mapRelationship } from '@/lib/mappers';
 
 interface BidComparisonProps {
   rfq: Rfq;
@@ -23,8 +20,26 @@ export function BidComparison({ rfq, onBack, onAward }: BidComparisonProps) {
   const [weights, setWeights] = useState<BidWeights>(DEFAULT_WEIGHTS);
   const [explainBidId, setExplainBidId] = useState<string | null>(null);
   const [relationship, setRelationship] = useState<SupplierRelationship | null>(null);
+  const [supplierRelationships, setSupplierRelationships] = useState<SupplierRelationship[]>([]);
   const [awardCandidate, setAwardCandidate] = useState<ScoredBid | null>(null);
   const [awardedId, setAwardedId] = useState<string | null>(rfq.awardedVendorId ?? null);
+
+  // Fetch relationships for bidding vendors
+  useEffect(() => {
+    const vendorIds = Array.from(new Set(rfq.bids.map((b) => b.vendorId)));
+    if (vendorIds.length === 0) return;
+
+    Promise.all(
+      vendorIds.map((id) =>
+        api.vendors.relationships(id).catch(() => []),
+      ),
+    ).then((results) => {
+      const flattened = results.flat().map(mapRelationship);
+      // Deduplicate by relationship id
+      const unique = Array.from(new Map(flattened.map((r) => [r.id, r])).values());
+      setSupplierRelationships(unique);
+    });
+  }, [rfq.bids]);
 
   const scored = useMemo(() => scoreBids(rfq.bids, weights), [rfq.bids, weights]);
 
@@ -34,7 +49,7 @@ export function BidComparison({ rfq, onBack, onAward }: BidComparisonProps) {
     return supplierRelationships.filter(
       (rel) => bidderIds.has(rel.vendorAId) && bidderIds.has(rel.vendorBId),
     );
-  }, [rfq.bids]);
+  }, [rfq.bids, supplierRelationships]);
 
   const relationshipFor = (vendorId: string) =>
     bidderRelationships.find(
@@ -182,21 +197,37 @@ export function BidComparison({ rfq, onBack, onAward }: BidComparisonProps) {
                       )}
                     </td>
                     <td className="table-cell text-right tnum text-navy">
-                      {formatRupees(bid.pricePerUnit)}/unit
+                      <div className="font-medium">{formatRupees(bid.pricePerUnit)}/unit</div>
+                      {bid.priceSanity?.isAnomalous && (
+                        <div
+                          className={`mt-1 inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-2xs font-semibold ${
+                            bid.priceSanity.deviationPercent < 0
+                              ? 'border border-amber-300 bg-amber-50 text-amber-800'
+                              : 'border border-red-300 bg-red-50 text-red-800'
+                          }`}
+                          title={bid.priceSanity.flag ?? ''}
+                        >
+                          <TriangleAlert size={10} className="shrink-0" />
+                          <span>
+                            {Math.abs(bid.priceSanity.deviationPercent)}%{' '}
+                            {bid.priceSanity.deviationPercent < 0 ? 'below' : 'above'} market
+                          </span>
+                        </div>
+                      )}
                     </td>
                     <td className="table-cell text-right tnum text-navy">{bid.deliveryDays} days</td>
                     <td className="table-cell text-right tnum text-navy">{bid.trustScore}</td>
                     <td className="table-cell text-right tnum text-muted">
-                      {bid.priceScore.toFixed(2)}
+                      {bid.priceScore.toFixed(0)}
                     </td>
                     <td className="table-cell text-right tnum text-muted">
-                      {bid.deliveryScore.toFixed(2)}
+                      {bid.deliveryScore.toFixed(0)}
                     </td>
                     <td className="table-cell text-right tnum text-muted">
-                      {bid.trustNormalised.toFixed(2)}
+                      {bid.trustNormalised.toFixed(0)}
                     </td>
                     <td className="table-cell text-right tnum font-semibold text-navy">
-                      {bid.composite.toFixed(2)}
+                      {bid.composite.toFixed(1)}
                     </td>
                     <td className="table-cell text-right tnum font-semibold text-navy">
                       #{bid.rank}

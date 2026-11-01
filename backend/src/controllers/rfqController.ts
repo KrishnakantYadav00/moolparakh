@@ -1,6 +1,20 @@
 // src/controllers/rfqController.ts
 import type { Request, Response } from 'express';
 import db from '@/lib/db.js';
+import { evaluatePriceSanity } from '@/services/shouldCostService.js';
+import { parseRfqRequirement } from '@/services/specParserService.js';
+
+// ─── POST /api/rfqs/parse-spec ──────────────────────────────────────────────
+export async function parseSpec(req: Request, res: Response) {
+  try {
+    const { freeText } = req.body as { freeText?: string };
+    const spec = await parseRfqRequirement(freeText ?? '');
+    res.json({ spec });
+  } catch (err) {
+    console.error('parseSpec error:', err);
+    res.status(500).json({ error: 'Failed to parse RFQ requirement' });
+  }
+}
 
 // ─── GET /api/rfqs ──────────────────────────────────────────────────────────
 export async function listRfqs(_req: Request, res: Response) {
@@ -8,12 +22,47 @@ export async function listRfqs(_req: Request, res: Response) {
     const rfqs = await db.rfq.findMany({
       include: {
         bids: {
-          include: { vendor: { select: { id: true, legalName: true } } },
+          include: {
+            vendor: {
+              select: {
+                id: true,
+                legalName: true,
+                trustScore: { select: { overallScore: true } },
+              },
+            },
+          },
         },
       },
       orderBy: { createdAt: 'desc' },
     });
-    res.json(rfqs);
+
+    // Attach price sanity checks and live trust scores to all bids
+    const enrichedRfqs = await Promise.all(
+      rfqs.map(async (rfq) => {
+        const spec = rfq.spec as Record<string, string> | null;
+        const enrichedBids = await Promise.all(
+          rfq.bids.map(async (bid) => {
+            const priceSanity = await evaluatePriceSanity(
+              bid.pricePerUnit,
+              spec?.item,
+              spec?.grade,
+              bid.id
+            );
+            return {
+              ...bid,
+              trustScoreAtBid: bid.vendor?.trustScore?.overallScore ?? bid.trustScoreAtBid,
+              priceSanity,
+            };
+          })
+        );
+        return {
+          ...rfq,
+          bids: enrichedBids,
+        };
+      })
+    );
+
+    res.json(enrichedRfqs);
   } catch (err) {
     console.error('listRfqs error:', err);
     res.status(500).json({ error: 'Failed to fetch RFQs' });
@@ -28,7 +77,15 @@ export async function getRfq(req: Request, res: Response) {
       where: { id },
       include: {
         bids: {
-          include: { vendor: { select: { id: true, legalName: true, trustScore: true } } },
+          include: {
+            vendor: {
+              select: {
+                id: true,
+                legalName: true,
+                trustScore: { select: { overallScore: true } },
+              },
+            },
+          },
           orderBy: { submittedAt: 'asc' },
         },
       },
@@ -37,7 +94,25 @@ export async function getRfq(req: Request, res: Response) {
       res.status(404).json({ error: 'RFQ not found' });
       return;
     }
-    res.json(rfq);
+
+    const spec = rfq.spec as Record<string, string> | null;
+    const enrichedBids = await Promise.all(
+      rfq.bids.map(async (bid) => {
+        const priceSanity = await evaluatePriceSanity(
+          bid.pricePerUnit,
+          spec?.item,
+          spec?.grade,
+          bid.id
+        );
+        return {
+          ...bid,
+          trustScoreAtBid: bid.vendor?.trustScore?.overallScore ?? bid.trustScoreAtBid,
+          priceSanity,
+        };
+      })
+    );
+
+    res.json({ ...rfq, bids: enrichedBids });
   } catch (err) {
     console.error('getRfq error:', err);
     res.status(500).json({ error: 'Failed to fetch RFQ' });
@@ -91,6 +166,16 @@ export async function submitBid(req: Request, res: Response) {
       return;
     }
 
+    const rfqId = String(req.params.id);
+    const rfq = await db.rfq.findUnique({
+      where: { id: rfqId },
+      select: { id: true, spec: true },
+    });
+    if (!rfq) {
+      res.status(404).json({ error: 'RFQ not found' });
+      return;
+    }
+
     // Fetch current trust score for denormalisation
     const vendor = await db.vendor.findUnique({
       where: { id: vendorId as string },
@@ -101,7 +186,19 @@ export async function submitBid(req: Request, res: Response) {
       return;
     }
 
-    const rfqId = String(req.params.id);
+    // Evaluate price sanity
+    const spec = rfq.spec as Record<string, string> | null;
+    const priceSanity = await evaluatePriceSanity(
+      Number(pricePerUnit),
+      spec?.item,
+      spec?.grade
+    );
+
+    let finalNotes = notes as string | undefined;
+    if (priceSanity.isAnomalous && priceSanity.flag) {
+      finalNotes = finalNotes ? `${finalNotes} | ${priceSanity.flag}` : priceSanity.flag;
+    }
+
     const bid = await db.bid.create({
       data: {
         rfqId,
@@ -110,10 +207,11 @@ export async function submitBid(req: Request, res: Response) {
         pricePerUnit: Number(pricePerUnit),
         deliveryDays: Number(deliveryDays),
         trustScoreAtBid: vendor.trustScore?.overallScore ?? 0,
-        notes: notes as string | undefined,
+        notes: finalNotes,
       },
     });
-    res.status(201).json(bid);
+
+    res.status(201).json({ ...bid, priceSanity });
   } catch (err: unknown) {
     console.error('submitBid error:', err);
     const msg = err instanceof Error ? err.message : '';

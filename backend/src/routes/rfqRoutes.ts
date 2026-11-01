@@ -6,6 +6,7 @@ const router = Router();
 
 router.get('/', rc.listRfqs);
 router.post('/', rc.createRfq);
+router.post('/parse-spec', rc.parseSpec);
 router.get('/:id', rc.getRfq);
 router.post('/:id/bids', rc.submitBid);
 router.patch('/:id/award', rc.awardBid);
