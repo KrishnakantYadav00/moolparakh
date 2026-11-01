@@ -152,6 +152,53 @@ export interface ApiRelationship {
   createdAt: string;
 }
 
+export interface ApiAlternateSupplier {
+  id: string;
+  legalName: string;
+  state: string;
+  city: string;
+  msmeCategory: string;
+  status: string;
+  trustScore: number;
+  riskLevel: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
+  sharedCategories: string[];
+  activeDisruptionCount: number;
+  recommendationReason: string;
+}
+
+export interface ApiAlternateSourcingResponse {
+  targetVendor: {
+    id: string;
+    legalName: string;
+    state: string;
+    city: string;
+    categories: string[];
+    trustScore: number;
+    riskLevel: string;
+  };
+  disruptionsCount: number;
+  alternates: ApiAlternateSupplier[];
+}
+
+export interface ApiStateDensity {
+  state: string;
+  code: string;
+  region: string;
+  disruptionCount: number;
+  maxSeverity: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL' | 'NONE';
+  level: number;
+  affectedVendorsCount: number;
+  topEvents: Array<{ title: string; severity: string; category: string }>;
+}
+
+export interface ApiHeatmapResponse {
+  totalEvents: number;
+  stateDensity: ApiStateDensity[];
+  regionalMatrix: Record<string, Record<string, number>>;
+  categories: string[];
+  regions: string[];
+}
+
 // ─── API methods ─────────────────────────────────────────────────────────────
 
 export const api = {
@@ -165,6 +212,8 @@ export const api = {
     verify: (id: string) =>
       req<ApiVendor>(`/vendors/${id}/verify`, { method: 'POST' }),
     relationships: (id: string) => req<ApiRelationship[]>(`/vendors/${id}/relationships`),
+    alternates: (vendorId: string) =>
+      req<ApiAlternateSourcingResponse>(`/vendors/${vendorId}/alternates`),
   },
 
   rfqs: {
@@ -191,6 +240,12 @@ export const api = {
   intelligence: {
     events: () => req<ApiDisruptionEvent[]>('/intelligence/events'),
     riskLeaderboard: () => req<ApiVendor[]>('/intelligence/risk-leaderboard'),
+    heatmap: () => req<ApiHeatmapResponse>('/intelligence/heatmap'),
+    syncGdelt: () =>
+      req<{ success: boolean; message: string; ingested: number; affectedVendorsMatched: number }>(
+        '/intelligence/sync-gdelt',
+        { method: 'POST' }
+      ),
     eventsForVendor: (vendorId: string) =>
       req<ApiDisruptionEvent[]>(`/intelligence/events/${vendorId}`),
   },

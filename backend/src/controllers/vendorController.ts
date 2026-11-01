@@ -3,6 +3,7 @@ import type { Request, Response } from 'express';
 import db from '@/lib/db.js';
 import { runVendorVerificationPipeline } from '@/services/verificationService.js';
 import { recalculateTrustScore } from '@/services/trustEngine.js';
+import { findAlternateSuppliers } from '@/services/alternateSourcingService.js';
 
 // ─── GET /api/vendors ───────────────────────────────────────────────────────
 export async function listVendors(_req: Request, res: Response) {
@@ -224,5 +225,18 @@ export async function getRelationships(req: Request, res: Response) {
   } catch (err) {
     console.error('getRelationships error:', err);
     res.status(500).json({ error: 'Failed to fetch relationships' });
+  }
+}
+
+// ─── GET /api/vendors/:id/alternates ─────────────────────────────────────────
+export async function getAlternates(req: Request, res: Response) {
+  try {
+    const id = String(req.params.id);
+    const limit = Number(req.query.limit || 5);
+    const result = await findAlternateSuppliers(id, limit);
+    res.json(result);
+  } catch (err: any) {
+    console.error('getAlternates error:', err);
+    res.status(500).json({ error: err.message || 'Failed to find alternate suppliers' });
   }
 }

@@ -176,6 +176,7 @@ export default function App() {
             vendor={drilldownVendor}
             onBack={() => setDrilldownVendorId(null)}
             onOpenProfile={() => openVendor(drilldownVendor.id)}
+            onSelectAlternate={(altId) => openVendor(altId)}
           />
         ) : (
           <IntelligencePage vendors={vendors} onSelectVendor={setDrilldownVendorId} />

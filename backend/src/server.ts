@@ -13,6 +13,7 @@ import rfqRoutes from '@/routes/rfqRoutes.js';
 import notificationRoutes from '@/routes/notificationRoutes.js';
 import intelligenceRoutes from '@/routes/intelligenceRoutes.js';
 import relationshipRoutes from '@/routes/relationshipRoutes.js';
+import { initGdeltCron } from '@/services/gdeltService.js';
 
 const app = express();
 const PORT = Number(process.env.PORT ?? 5000);
@@ -75,4 +76,7 @@ app.listen(PORT, () => {
   console.log(`\n🚀 MoolParakh API running on http://localhost:${PORT}`);
   console.log(`   Health: http://localhost:${PORT}/health`);
   console.log(`   R2:     ${r2Enabled ? '✅ configured' : '⚠️  not configured (set R2_* vars to enable uploads)'}\n`);
+
+  // Start the 15-minute GDELT disruption monitoring cron
+  initGdeltCron();
 });
