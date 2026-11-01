@@ -3,11 +3,43 @@
 
 const BASE = (import.meta.env.VITE_API_BASE_URL as string) ?? 'http://localhost:5000/api';
 
+// ─── Token helpers ────────────────────────────────────────────────────────────
+const TOKEN_KEY = 'moolparakh_token';
+
+export function getToken(): string | null {
+  return localStorage.getItem(TOKEN_KEY);
+}
+
+export function setToken(token: string): void {
+  localStorage.setItem(TOKEN_KEY, token);
+}
+
+export function clearToken(): void {
+  localStorage.removeItem(TOKEN_KEY);
+}
+
 async function req<T>(path: string, init?: RequestInit): Promise<T> {
+  const token = getToken();
+  const authHeaders: Record<string, string> = token
+    ? { Authorization: `Bearer ${token}` }
+    : {};
+
   const res = await fetch(`${BASE}${path}`, {
-    headers: { 'Content-Type': 'application/json', ...init?.headers },
+    headers: {
+      'Content-Type': 'application/json',
+      ...authHeaders,
+      ...init?.headers,
+    },
     ...init,
   });
+
+  if (res.status === 401) {
+    // Token expired or invalid — clear it so the app redirects to login
+    clearToken();
+    window.location.reload();
+    throw new Error('Session expired — please log in again');
+  }
+
   if (!res.ok) {
     const err = await res.json().catch(() => ({ error: res.statusText }));
     throw new Error((err as { error: string }).error ?? res.statusText);
@@ -201,7 +233,22 @@ export interface ApiHeatmapResponse {
 
 // ─── API methods ─────────────────────────────────────────────────────────────
 
+export interface ApiLoginResponse {
+  token: string;
+  email: string;
+  role: string;
+}
+
 export const api = {
+  auth: {
+    login: (email: string, password: string) =>
+      req<ApiLoginResponse>('/auth/login', {
+        method: 'POST',
+        body: JSON.stringify({ email, password }),
+      }),
+    me: () => req<{ email: string; role: string }>('/auth/me'),
+  },
+
   vendors: {
     list: () => req<ApiVendor[]>('/vendors'),
     get: (id: string) => req<ApiVendor>(`/vendors/${id}`),

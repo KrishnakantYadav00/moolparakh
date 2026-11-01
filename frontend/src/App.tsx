@@ -15,9 +15,9 @@ import { SupplierDrilldown } from '@/components/intelligence/SupplierDrilldown';
 import { RfqPage } from '@/components/rfq/RfqPage';
 import { RfqWizard } from '@/components/rfq/RfqWizard';
 import { BidComparison } from '@/components/rfq/BidComparison';
-import { api } from '@/lib/api';
+import { LoginPage } from '@/components/auth/LoginPage';
+import { api, clearToken, getToken } from '@/lib/api';
 import { mapVendor, mapRfq, mapNotification, mapRelationship } from '@/lib/mappers';
-
 const PAGE_META: Record<ViewKey, { title: string; subtitle: string }> = {
   overview: { title: 'Overview', subtitle: 'Procurement dashboard' },
   vendors: { title: 'Vendors', subtitle: 'Verification, trust and compliance' },
@@ -32,6 +32,23 @@ const PAGE_META: Record<ViewKey, { title: string; subtitle: string }> = {
 };
 
 export default function App() {
+  // ─── Auth gate ──────────────────────────────────────────────────────────────
+  const [authed, setAuthed] = useState<boolean>(() => !!getToken());
+
+  const handleLogout = () => {
+    clearToken();
+    setAuthed(false);
+  };
+
+  if (!authed) {
+    return <LoginPage onLogin={() => setAuthed(true)} />;
+  }
+
+  return <AuthenticatedApp onLogout={handleLogout} />;
+}
+
+// ─── Main app — only rendered after login ─────────────────────────────────────
+function AuthenticatedApp({ onLogout }: { onLogout: () => void }) {
   const [view, setView] = useState<ViewKey>('overview');
   const [vendors, setVendors] = useState<Vendor[]>([]);
   const [rfqs, setRfqs] = useState<Rfq[]>([]);
@@ -222,6 +239,7 @@ export default function App() {
         onOpenNotifications={() => setNotifOpen(true)}
         mobileNavOpen={mobileNavOpen}
         setMobileNavOpen={setMobileNavOpen}
+        onLogout={onLogout}
       >
         {renderView()}
       </AppShell>

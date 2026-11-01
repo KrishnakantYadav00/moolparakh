@@ -19,6 +19,11 @@ services:
 
   # ─── App (Backend API + React Frontend) ───────────────────────────────────
   app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        VITE_API_BASE_URL: ${VITE_API_BASE_URL:-/api}
     image: moolparakh-d-image
     container_name: moolparakh_app
     restart: unless-stopped
@@ -28,6 +33,9 @@ services:
       DATABASE_URL: postgresql://postgres:krishna@postgres:5432/fproject2026
       NODE_ENV: production
       PORT: 5000
+      JWT_SECRET: ${JWT_SECRET:-moolparakh-super-secret-jwt-2026}
+      BUYER_EMAIL: ${BUYER_EMAIL:-admin@moolparakh.in}
+      BUYER_PASSWORD: ${BUYER_PASSWORD:-MoolParakh@2026}
       # Optional: add R2 vars here if you configure Cloudflare R2
       # R2_ACCOUNT_ID: ""
       # R2_ACCESS_KEY_ID: ""

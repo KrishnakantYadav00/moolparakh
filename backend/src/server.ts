@@ -13,6 +13,8 @@ import rfqRoutes from '@/routes/rfqRoutes.js';
 import notificationRoutes from '@/routes/notificationRoutes.js';
 import intelligenceRoutes from '@/routes/intelligenceRoutes.js';
 import relationshipRoutes from '@/routes/relationshipRoutes.js';
+import authRoutes from '@/routes/authRoutes.js';
+import { requireAuth } from '@/middleware/auth.js';
 import { initGdeltCron } from '@/services/gdeltService.js';
 
 const app = express();
@@ -22,15 +24,7 @@ const PORT = Number(process.env.PORT ?? 5000);
 app.use(cors({ origin: '*', credentials: true }));
 app.use(express.json());
 
-// ─── API Routes ──────────────────────────────────────────────────────────────
-app.use('/api/vendors', vendorRoutes);
-app.use('/api/documents', documentRoutes);
-app.use('/api/rfqs', rfqRoutes);
-app.use('/api/notifications', notificationRoutes);
-app.use('/api/intelligence', intelligenceRoutes);
-app.use('/api/relationships', relationshipRoutes);
-
-// ─── Health Check ─────────────────────────────────────────────────────────────
+// ─── Health Check (public — before auth middleware) ──────────────────────────
 app.get('/health', async (_req, res) => {
   try {
     await db.$queryRaw`SELECT 1`;
@@ -44,6 +38,20 @@ app.get('/health', async (_req, res) => {
     res.status(503).json({ status: 'unhealthy', db: 'disconnected' });
   }
 });
+
+// ─── Auth Routes (public — login doesn't require a token) ─────────────────
+app.use('/api/auth', authRoutes);
+
+// ─── JWT Guard — all routes below this line require a valid Bearer token ─────
+app.use('/api', requireAuth);
+
+// ─── Protected API Routes ────────────────────────────────────────────────────
+app.use('/api/vendors', vendorRoutes);
+app.use('/api/documents', documentRoutes);
+app.use('/api/rfqs', rfqRoutes);
+app.use('/api/notifications', notificationRoutes);
+app.use('/api/intelligence', intelligenceRoutes);
+app.use('/api/relationships', relationshipRoutes);
 
 // ─── SPA Static Fallback (optional, for when frontend is built) ───────────────
 const candidateDistPaths = [

@@ -4,6 +4,7 @@ import {
   Building2,
   FileText,
   LayoutDashboard,
+  LogOut,
   Settings,
   ShieldCheck,
 } from 'lucide-react';
@@ -49,9 +50,10 @@ interface SidebarProps {
   view: ViewKey;
   onNavigate: (view: ViewKey) => void;
   unreadCount: number;
+  onLogout?: () => void;
 }
 
-export function Sidebar({ view, onNavigate, unreadCount }: SidebarProps) {
+export function Sidebar({ view, onNavigate, unreadCount, onLogout }: SidebarProps) {
   const renderItem = (item: NavItem) => {
     const Icon = item.icon;
     const active = view === item.key;
@@ -111,6 +113,16 @@ export function Sidebar({ view, onNavigate, unreadCount }: SidebarProps) {
       <div className="border-t border-hairline px-4 py-3.5">
         <p className="text-sm font-semibold text-navy truncate">{organisation.name}</p>
         <p className="text-xs text-muted">{organisation.role}</p>
+        {onLogout && (
+          <button
+            type="button"
+            onClick={onLogout}
+            className="mt-2.5 flex items-center gap-1.5 text-xs text-muted hover:text-risk-critical transition-colors"
+          >
+            <LogOut size={13} />
+            Sign out
+          </button>
+        )}
       </div>
     </div>
   );
