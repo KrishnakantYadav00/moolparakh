@@ -5,6 +5,10 @@ FROM node:20-alpine AS frontend-builder
 
 WORKDIR /app/frontend
 
+# Arguments & environment for Vite build
+ARG VITE_API_BASE_URL=/api
+ENV VITE_API_BASE_URL=$VITE_API_BASE_URL
+
 # Install dependencies
 COPY frontend/package*.json ./
 RUN npm ci

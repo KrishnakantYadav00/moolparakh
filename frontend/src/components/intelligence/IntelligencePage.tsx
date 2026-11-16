@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { RefreshCw } from 'lucide-react';
+import { RefreshCw, Globe, CheckCircle2 } from 'lucide-react';
 import type { Vendor, DisruptionEvent } from '@/types';
 import { Button } from '@/components/ui/Primitives';
 import { RiskLeaderboard } from '@/components/intelligence/RiskLeaderboard';
@@ -21,16 +21,18 @@ export function IntelligencePage({
 }) {
   const [minutesSinceUpdate, setMinutesSinceUpdate] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
+  const [syncingGdelt, setSyncingGdelt] = useState(false);
+  const [syncStatus, setSyncStatus] = useState<string | null>(null);
   const [disruptionEvents, setDisruptionEvents] = useState<DisruptionEvent[]>([]);
 
   // ─── Load disruption events from backend ────────────────────────────────
   const loadEvents = () => {
     api.intelligence.events()
-      .then(data => {
+      .then((data) => {
         setDisruptionEvents(data.map(mapDisruptionEvent));
         setMinutesSinceUpdate(0);
       })
-      .catch(err => console.error('Failed to load disruption events:', err));
+      .catch((err) => console.error('Failed to load disruption events:', err));
   };
 
   useEffect(() => {
@@ -51,17 +53,39 @@ export function IntelligencePage({
     window.setTimeout(() => setRefreshing(false), 900);
   };
 
+  const handleSyncGdelt = async () => {
+    setSyncingGdelt(true);
+    setSyncStatus(null);
+    try {
+      const res = await api.intelligence.syncGdelt();
+      loadEvents();
+      setSyncStatus(`Synced: ${res.ingested} new events, ${res.affectedVendorsMatched} suppliers linked`);
+      window.setTimeout(() => setSyncStatus(null), 5000);
+    } catch (err) {
+      console.error('Failed to sync GDELT:', err);
+    } finally {
+      setSyncingGdelt(false);
+    }
+  };
+
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h2 className="text-2xl font-semibold tracking-tight text-navy">Supplier Intelligence</h2>
           <p className="mt-0.5 text-base text-muted">
-            Real-time visibility into supplier disruption and risk.
+            Real-time visibility into supplier disruption and risk via GDELT & live KYB signals.
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
+          {syncStatus && (
+            <div className="flex items-center gap-1.5 rounded-md bg-teal-soft px-2.5 py-1 text-xs text-navy border border-teal/30">
+              <CheckCircle2 size={13} className="text-teal" />
+              <span>{syncStatus}</span>
+            </div>
+          )}
+
           <div className="flex items-center gap-2 rounded-md border border-hairline bg-surface px-2.5 py-1.5">
             <span className="relative flex h-2 w-2">
               <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-teal opacity-60" />
@@ -76,6 +100,17 @@ export function IntelligencePage({
                   : `Last updated ${minutesSinceUpdate} min ago`}
             </span>
           </div>
+
+          <Button
+            size="sm"
+            variant="secondary"
+            onClick={handleSyncGdelt}
+            disabled={syncingGdelt}
+            icon={<Globe size={14} className={syncingGdelt ? 'animate-spin' : ''} />}
+          >
+            {syncingGdelt ? 'Syncing GDELT...' : 'Sync GDELT Feed'}
+          </Button>
+
           <Button
             size="sm"
             variant="secondary"

@@ -143,6 +143,14 @@ export interface DisruptionEvent {
   affectedVendors?: Array<{ id: string; name: string }>;
 }
 
+export interface PriceSanity {
+  flag: string | null;
+  benchmarkPrice: number;
+  deviationPercent: number;
+  isAnomalous: boolean;
+  benchmarkSource: string;
+}
+
 export interface Bid {
   id: string;
   rfqId: string;
@@ -153,6 +161,7 @@ export interface Bid {
   trustScore: number;
   submittedHoursAgo: number;
   notes: string;
+  priceSanity?: PriceSanity;
 }
 
 export interface ScoredBid extends Bid {

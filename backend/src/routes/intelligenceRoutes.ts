@@ -6,6 +6,8 @@ const router = Router();
 
 router.get('/events', ic.listEvents);
 router.get('/risk-leaderboard', ic.riskLeaderboard);
+router.get('/heatmap', ic.getHeatmapData);
+router.post('/sync-gdelt', ic.triggerGdeltSync);
 router.get('/events/:vendorId', ic.eventsForVendor);
 router.post('/events', ic.createEvent);
 

@@ -10,5 +10,6 @@ router.get('/:id', vc.getVendor);
 router.patch('/:id', vc.updateVendor);
 router.post('/:id/verify', vc.triggerVendorVerification);
 router.get('/:id/relationships', vc.getRelationships);
+router.get('/:id/alternates', vc.getAlternates);
 
 export default router;

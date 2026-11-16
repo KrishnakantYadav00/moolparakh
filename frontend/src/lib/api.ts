@@ -3,11 +3,43 @@
 
 const BASE = (import.meta.env.VITE_API_BASE_URL as string) ?? 'http://localhost:5000/api';
 
+// ─── Token helpers ────────────────────────────────────────────────────────────
+const TOKEN_KEY = 'moolparakh_token';
+
+export function getToken(): string | null {
+  return localStorage.getItem(TOKEN_KEY);
+}
+
+export function setToken(token: string): void {
+  localStorage.setItem(TOKEN_KEY, token);
+}
+
+export function clearToken(): void {
+  localStorage.removeItem(TOKEN_KEY);
+}
+
 async function req<T>(path: string, init?: RequestInit): Promise<T> {
+  const token = getToken();
+  const authHeaders: Record<string, string> = token
+    ? { Authorization: `Bearer ${token}` }
+    : {};
+
   const res = await fetch(`${BASE}${path}`, {
-    headers: { 'Content-Type': 'application/json', ...init?.headers },
+    headers: {
+      'Content-Type': 'application/json',
+      ...authHeaders,
+      ...init?.headers,
+    },
     ...init,
   });
+
+  if (res.status === 401) {
+    // Token expired or invalid — clear it so the app redirects to login
+    clearToken();
+    window.location.reload();
+    throw new Error('Session expired — please log in again');
+  }
+
   if (!res.ok) {
     const err = await res.json().catch(() => ({ error: res.statusText }));
     throw new Error((err as { error: string }).error ?? res.statusText);
@@ -95,6 +127,13 @@ export interface ApiBid {
   trustScoreAtBid: number;
   notes: string | null;
   submittedAt: string;
+  priceSanity?: {
+    flag: string | null;
+    benchmarkPrice: number;
+    deviationPercent: number;
+    isAnomalous: boolean;
+    benchmarkSource: string;
+  };
 }
 
 export interface ApiRfq {
@@ -152,9 +191,71 @@ export interface ApiRelationship {
   createdAt: string;
 }
 
+export interface ApiAlternateSupplier {
+  id: string;
+  legalName: string;
+  state: string;
+  city: string;
+  msmeCategory: string;
+  status: string;
+  trustScore: number;
+  riskLevel: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
+  sharedCategories: string[];
+  activeDisruptionCount: number;
+  recommendationReason: string;
+}
+
+export interface ApiAlternateSourcingResponse {
+  targetVendor: {
+    id: string;
+    legalName: string;
+    state: string;
+    city: string;
+    categories: string[];
+    trustScore: number;
+    riskLevel: string;
+  };
+  disruptionsCount: number;
+  alternates: ApiAlternateSupplier[];
+}
+
+export interface ApiStateDensity {
+  state: string;
+  code: string;
+  region: string;
+  disruptionCount: number;
+  maxSeverity: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL' | 'NONE';
+  level: number;
+  affectedVendorsCount: number;
+  topEvents: Array<{ title: string; severity: string; category: string }>;
+}
+
+export interface ApiHeatmapResponse {
+  totalEvents: number;
+  stateDensity: ApiStateDensity[];
+  regionalMatrix: Record<string, Record<string, number>>;
+  categories: string[];
+  regions: string[];
+}
+
 // ─── API methods ─────────────────────────────────────────────────────────────
 
+export interface ApiLoginResponse {
+  token: string;
+  email: string;
+  role: string;
+}
+
 export const api = {
+  auth: {
+    login: (email: string, password: string) =>
+      req<ApiLoginResponse>('/auth/login', {
+        method: 'POST',
+        body: JSON.stringify({ email, password }),
+      }),
+    me: () => req<{ email: string; role: string }>('/auth/me'),
+  },
+
   vendors: {
     list: () => req<ApiVendor[]>('/vendors'),
     get: (id: string) => req<ApiVendor>(`/vendors/${id}`),
@@ -165,6 +266,8 @@ export const api = {
     verify: (id: string) =>
       req<ApiVendor>(`/vendors/${id}/verify`, { method: 'POST' }),
     relationships: (id: string) => req<ApiRelationship[]>(`/vendors/${id}/relationships`),
+    alternates: (vendorId: string) =>
+      req<ApiAlternateSourcingResponse>(`/vendors/${vendorId}/alternates`),
   },
 
   rfqs: {
@@ -172,6 +275,11 @@ export const api = {
     get: (id: string) => req<ApiRfq>(`/rfqs/${id}`),
     create: (body: Record<string, unknown>) =>
       req<ApiRfq>('/rfqs', { method: 'POST', body: JSON.stringify(body) }),
+    parseSpec: (freeText: string) =>
+      req<{ spec: Record<string, unknown> }>('/rfqs/parse-spec', {
+        method: 'POST',
+        body: JSON.stringify({ freeText }),
+      }),
     submitBid: (rfqId: string, body: Record<string, unknown>) =>
       req<ApiBid>(`/rfqs/${rfqId}/bids`, { method: 'POST', body: JSON.stringify(body) }),
     award: (rfqId: string, vendorId: string) =>
@@ -191,6 +299,12 @@ export const api = {
   intelligence: {
     events: () => req<ApiDisruptionEvent[]>('/intelligence/events'),
     riskLeaderboard: () => req<ApiVendor[]>('/intelligence/risk-leaderboard'),
+    heatmap: () => req<ApiHeatmapResponse>('/intelligence/heatmap'),
+    syncGdelt: () =>
+      req<{ success: boolean; message: string; ingested: number; affectedVendorsMatched: number }>(
+        '/intelligence/sync-gdelt',
+        { method: 'POST' }
+      ),
     eventsForVendor: (vendorId: string) =>
       req<ApiDisruptionEvent[]>(`/intelligence/events/${vendorId}`),
   },

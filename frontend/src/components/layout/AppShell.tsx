@@ -13,6 +13,7 @@ interface AppShellProps {
   onOpenNotifications: () => void;
   mobileNavOpen: boolean;
   setMobileNavOpen: (open: boolean) => void;
+  onLogout?: () => void;
   children: ReactNode;
 }
 
@@ -25,6 +26,7 @@ export function AppShell({
   onOpenNotifications,
   mobileNavOpen,
   setMobileNavOpen,
+  onLogout,
   children,
 }: AppShellProps) {
   useEffect(() => {
@@ -40,7 +42,7 @@ export function AppShell({
     <div className="flex min-h-screen bg-canvas">
       <aside className="hidden w-[264px] shrink-0 lg:block">
         <div className="fixed inset-y-0 left-0 w-[264px]">
-          <Sidebar view={view} onNavigate={onNavigate} unreadCount={unreadCount} />
+          <Sidebar view={view} onNavigate={onNavigate} unreadCount={unreadCount} onLogout={onLogout} />
         </div>
       </aside>
 
@@ -67,6 +69,7 @@ export function AppShell({
                 setMobileNavOpen(false);
               }}
               unreadCount={unreadCount}
+              onLogout={onLogout}
             />
           </div>
         </div>
