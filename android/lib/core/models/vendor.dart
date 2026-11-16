@@ -255,12 +255,25 @@ class TrustScore extends Equatable {
   });
 
   factory TrustScore.fromJson(Map<String, dynamic> j) => TrustScore(
-    overallScore: j['overallScore'] as int,
-    verificationCompleteness: j['verificationCompleteness'] as int,
-    certificationFreshness: j['certificationFreshness'] as int,
-    accountAgeActivity: j['accountAgeActivity'] as int,
-    manualBuyerFlag: j['manualBuyerFlag'] as int,
-    riskLevel: RiskLevelX.fromString(j['riskLevel'] as String),
+    overallScore: (j['overallScore'] as num?)?.toInt() ??
+        (j['overall_score'] as num?)?.toInt() ??
+        0,
+    verificationCompleteness:
+        (j['verificationCompleteness'] as num?)?.toInt() ??
+            (j['verification_completeness'] as num?)?.toInt() ??
+            0,
+    certificationFreshness: (j['certificationFreshness'] as num?)?.toInt() ??
+        (j['certification_freshness'] as num?)?.toInt() ??
+        0,
+    accountAgeActivity: (j['accountAgeActivity'] as num?)?.toInt() ??
+        (j['account_age_activity'] as num?)?.toInt() ??
+        0,
+    manualBuyerFlag: (j['manualBuyerFlag'] as num?)?.toInt() ??
+        (j['manual_buyer_flag'] as num?)?.toInt() ??
+        0,
+    riskLevel: RiskLevelX.fromString(
+      (j['riskLevel'] ?? j['risk_level'] ?? 'LOW').toString(),
+    ),
   );
 
   /// Empty/default score when a vendor has no score yet.
@@ -292,8 +305,13 @@ class TrustHistoryPoint extends Equatable {
 
   factory TrustHistoryPoint.fromJson(Map<String, dynamic> j) =>
       TrustHistoryPoint(
-        score: j['score'] as int,
-        recordedAt: DateTime.parse(j['recordedAt'] as String),
+        score: (j['score'] as num?)?.toInt() ?? 0,
+        recordedAt: DateTime.tryParse(
+              j['recordedAt']?.toString() ??
+                  j['recorded_at']?.toString() ??
+                  '',
+            ) ??
+            DateTime.now(),
       );
 
   @override
@@ -317,13 +335,19 @@ class VerificationRecord extends Equatable {
 
   factory VerificationRecord.fromJson(Map<String, dynamic> j) =>
       VerificationRecord(
-        id: j['id'] as String,
-        type: VerificationTypeX.fromString(j['type'] as String),
-        status: VerificationStatusX.fromString(j['status'] as String),
+        id: j['id']?.toString() ?? '',
+        type: VerificationTypeX.fromString(j['type']?.toString() ?? 'PAN'),
+        status: VerificationStatusX.fromString(
+            j['status']?.toString() ?? 'PENDING'),
         verifiedAt: j['verifiedAt'] != null
-            ? DateTime.parse(j['verifiedAt'] as String)
-            : null,
-        createdAt: DateTime.parse(j['createdAt'] as String),
+            ? DateTime.tryParse(j['verifiedAt'].toString())
+            : (j['verified_at'] != null
+                ? DateTime.tryParse(j['verified_at'].toString())
+                : null),
+        createdAt: DateTime.tryParse(
+              j['createdAt']?.toString() ?? j['created_at']?.toString() ?? '',
+            ) ??
+            DateTime.now(),
       );
 
   @override
@@ -354,19 +378,28 @@ class VendorDocument extends Equatable {
   });
 
   factory VendorDocument.fromJson(Map<String, dynamic> j) => VendorDocument(
-    id: j['id'] as String,
-    type: j['type'] as String,
-    status: DocumentStatusX.fromString(j['status'] as String),
-    certificateNumber: j['certificateNumber'] as String?,
-    issuingAuthority: j['issuingAuthority'] as String?,
+    id: j['id']?.toString() ?? '',
+    type: j['type']?.toString() ?? 'Document',
+    status: DocumentStatusX.fromString(j['status']?.toString() ?? 'UPLOADED'),
+    certificateNumber:
+        (j['certificateNumber'] ?? j['certificate_number'])?.toString(),
+    issuingAuthority:
+        (j['issuingAuthority'] ?? j['issuing_authority'])?.toString(),
     issueDate: j['issueDate'] != null
-        ? DateTime.parse(j['issueDate'] as String)
-        : null,
+        ? DateTime.tryParse(j['issueDate'].toString())
+        : (j['issue_date'] != null
+            ? DateTime.tryParse(j['issue_date'].toString())
+            : null),
     expirationDate: j['expirationDate'] != null
-        ? DateTime.parse(j['expirationDate'] as String)
-        : null,
+        ? DateTime.tryParse(j['expirationDate'].toString())
+        : (j['expiration_date'] != null
+            ? DateTime.tryParse(j['expiration_date'].toString())
+            : null),
     confidence: (j['confidence'] as num?)?.toDouble(),
-    uploadedAt: DateTime.parse(j['uploadedAt'] as String),
+    uploadedAt: DateTime.tryParse(
+          j['uploadedAt']?.toString() ?? j['uploaded_at']?.toString() ?? '',
+        ) ??
+        DateTime.now(),
   );
 
   bool get isExpired =>
@@ -404,11 +437,11 @@ class VendorEvent extends Equatable {
   });
 
   factory VendorEvent.fromJson(Map<String, dynamic> j) => VendorEvent(
-    id: j['id'] as String,
-    kind: VendorEventKindX.fromString(j['kind'] as String),
-    title: j['title'] as String,
-    detail: j['detail'] as String,
-    at: DateTime.parse(j['at'] as String),
+    id: j['id']?.toString() ?? '',
+    kind: VendorEventKindX.fromString(j['kind']?.toString() ?? 'VERIFICATION'),
+    title: j['title']?.toString() ?? 'Event',
+    detail: j['detail']?.toString() ?? '',
+    at: DateTime.tryParse(j['at']?.toString() ?? '') ?? DateTime.now(),
   );
 
   @override
@@ -468,46 +501,52 @@ class Vendor extends Equatable {
   });
 
   factory Vendor.fromJson(Map<String, dynamic> j) => Vendor(
-    id: j['id'] as String,
-    legalName: j['legalName'] as String,
-    tradeName: j['tradeName'] as String?,
-    email: j['email'] as String,
-    phone: j['phone'] as String,
-    pan: j['pan'] as String?,
-    gstin: j['gstin'] as String?,
-    cin: j['cin'] as String?,
-    udyamNumber: j['udyamNumber'] as String?,
-    msmeCategory: MsmeCategoryX.fromString(j['msmeCategory'] as String),
+    id: j['id']?.toString() ?? '',
+    legalName: (j['legalName'] ?? j['legal_name'])?.toString() ?? '',
+    tradeName: (j['tradeName'] ?? j['trade_name'])?.toString(),
+    email: j['email']?.toString() ?? '',
+    phone: j['phone']?.toString() ?? '',
+    pan: j['pan']?.toString(),
+    gstin: j['gstin']?.toString(),
+    cin: j['cin']?.toString(),
+    udyamNumber: (j['udyamNumber'] ?? j['udyam_number'])?.toString(),
+    msmeCategory: MsmeCategoryX.fromString(
+        (j['msmeCategory'] ?? j['msme_category'] ?? 'MICRO').toString()),
     city: j['city'] as String? ?? '',
     state: j['state'] as String? ?? '',
-    categories:
-        (j['categories'] as List<dynamic>?)?.map((e) => e as String).toList() ??
+    categories: (j['categories'] as List<dynamic>?)
+            ?.map((e) => e.toString())
+            .toList() ??
         [],
-    contactName: j['contactName'] as String? ?? '',
-    contactRole: j['contactRole'] as String? ?? '',
-    status: VendorStatusX.fromString(j['status'] as String),
-    buyerFlagNote: j['buyerFlagNote'] as String?,
-    onboardedAt: DateTime.parse(j['onboardedAt'] as String),
+    contactName:
+        (j['contactName'] ?? j['contact_name']) as String? ?? '',
+    contactRole:
+        (j['contactRole'] ?? j['contact_role']) as String? ?? '',
+    status: VendorStatusX.fromString((j['status'] ?? 'DRAFT').toString()),
+    buyerFlagNote:
+        (j['buyerFlagNote'] ?? j['buyer_flag_note']) as String?,
+    onboardedAt: DateTime.tryParse(
+          j['onboardedAt']?.toString() ?? j['onboarded_at']?.toString() ?? '',
+        ) ??
+        DateTime.now(),
     trustScore: j['trustScore'] != null
         ? TrustScore.fromJson(j['trustScore'] as Map<String, dynamic>)
-        : null,
-    trustHistory:
-        (j['trustHistory'] as List<dynamic>?)
+        : (j['trust_score'] != null
+            ? TrustScore.fromJson(j['trust_score'] as Map<String, dynamic>)
+            : null),
+    trustHistory: ((j['trustHistory'] ?? j['trust_history']) as List<dynamic>?)
             ?.map((e) => TrustHistoryPoint.fromJson(e as Map<String, dynamic>))
             .toList() ??
         [],
-    verifications:
-        (j['verifications'] as List<dynamic>?)
+    verifications: (j['verifications'] as List<dynamic>?)
             ?.map((e) => VerificationRecord.fromJson(e as Map<String, dynamic>))
             .toList() ??
         [],
-    documents:
-        (j['documents'] as List<dynamic>?)
+    documents: (j['documents'] as List<dynamic>?)
             ?.map((e) => VendorDocument.fromJson(e as Map<String, dynamic>))
             .toList() ??
         [],
-    events:
-        (j['events'] as List<dynamic>?)
+    events: (j['events'] as List<dynamic>?)
             ?.map((e) => VendorEvent.fromJson(e as Map<String, dynamic>))
             .toList() ??
         [],

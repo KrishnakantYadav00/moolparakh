@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../core/models/vendor.dart';
 import '../../../core/providers/intelligence_provider.dart';
@@ -402,47 +403,50 @@ class _RiskLeaderboard extends StatelessWidget {
             return Column(
               children: [
                 const Divider(height: 1, color: Color(0xFFEEEEEE)),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                  child: Row(
-                    children: [
-                      SizedBox(
-                        width: 28,
-                        child: Text('${i + 1}',
-                            style: const TextStyle(fontSize: 13, color: AppColors.textSecondary, fontWeight: FontWeight.w600)),
-                      ),
-                      Expanded(
-                        child: Text(vendor.legalName,
-                            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
-                      ),
-                      SizedBox(
-                        width: 70,
-                        child: Center(
-                          child: Text('$score',
-                              style: TextStyle(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w700,
-                                  color: riskColor)),
+                InkWell(
+                  onTap: () => context.push('/vendor/${vendor.id}'),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    child: Row(
+                      children: [
+                        SizedBox(
+                          width: 28,
+                          child: Text('${i + 1}',
+                              style: const TextStyle(fontSize: 13, color: AppColors.textSecondary, fontWeight: FontWeight.w600)),
                         ),
-                      ),
-                      SizedBox(
-                        width: 60,
-                        child: Center(
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                            decoration: BoxDecoration(
-                              color: riskColor.withAlpha(25),
-                              borderRadius: BorderRadius.circular(6),
-                            ),
-                            child: Text(riskLabel,
+                        Expanded(
+                          child: Text(vendor.legalName,
+                              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
+                        ),
+                        SizedBox(
+                          width: 70,
+                          child: Center(
+                            child: Text('$score',
                                 style: TextStyle(
-                                    fontSize: 10,
+                                    fontSize: 14,
                                     fontWeight: FontWeight.w700,
                                     color: riskColor)),
                           ),
                         ),
-                      ),
-                    ],
+                        SizedBox(
+                          width: 60,
+                          child: Center(
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                              decoration: BoxDecoration(
+                                color: riskColor.withAlpha(25),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: Text(riskLabel,
+                                  style: TextStyle(
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w700,
+                                      color: riskColor)),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ],

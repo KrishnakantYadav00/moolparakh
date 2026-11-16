@@ -20,7 +20,11 @@ import 'package:file_picker/file_picker.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:path/path.dart' as p;
 import '../../../core/api/api_client.dart';
+import '../../../core/models/vendor.dart';
+import '../../../core/providers/demo_mode_provider.dart';
+import '../../../core/providers/vendors_list_provider.dart';
 import '../../../core/providers/vendors_provider.dart';
+import '../../../core/services/demo_data.dart';
 import '../../../core/theme/app_theme.dart';
 
 // Supported document types — mirrors DocumentType enum in schema.prisma
@@ -142,6 +146,72 @@ class _DocumentUploadScreenState extends ConsumerState<DocumentUploadScreen> {
       _progress = 0;
       _error = null;
     });
+
+    final isDemo = ref.read(isDemoModeProvider);
+    if (isDemo) {
+      for (double pr = 0.25; pr <= 1.0; pr += 0.25) {
+        await Future.delayed(const Duration(milliseconds: 250));
+        if (mounted) setState(() => _progress = pr);
+      }
+      final newDoc = VendorDocument(
+        id: 'doc-demo-${DateTime.now().millisecondsSinceEpoch}',
+        type: _docType,
+        status: DocumentStatus.parsed,
+        certificateNumber: 'CERT-${DateTime.now().millisecond}',
+        issuingAuthority: 'Ministry of Corporate Affairs / GSTN',
+        uploadedAt: DateTime.now(),
+        expirationDate: DateTime.now().add(const Duration(days: 365)),
+        confidence: 0.96,
+      );
+      for (var i = 0; i < demoVendors.length; i++) {
+        final v = demoVendors[i];
+        if (v.id == widget.vendorId) {
+          demoVendors[i] = Vendor(
+            id: v.id,
+            legalName: v.legalName,
+            tradeName: v.tradeName,
+            email: v.email,
+            phone: v.phone,
+            pan: v.pan,
+            gstin: v.gstin,
+            cin: v.cin,
+            udyamNumber: v.udyamNumber,
+            msmeCategory: v.msmeCategory,
+            city: v.city,
+            state: v.state,
+            categories: v.categories,
+            contactName: v.contactName,
+            contactRole: v.contactRole,
+            status: v.status,
+            buyerFlagNote: v.buyerFlagNote,
+            onboardedAt: v.onboardedAt,
+            trustScore: v.trustScore,
+            trustHistory: v.trustHistory,
+            verifications: v.verifications,
+            documents: [newDoc, ...v.documents],
+            events: [
+              VendorEvent(
+                id: 'ev-doc-${DateTime.now().millisecondsSinceEpoch}',
+                kind: VendorEventKind.document,
+                title: 'Document Uploaded',
+                detail: '$_docType uploaded and verified.',
+                at: DateTime.now(),
+              ),
+              ...v.events,
+            ],
+          );
+          break;
+        }
+      }
+      ref.invalidate(vendorsListProvider);
+      if (mounted) {
+        setState(() {
+          _done = true;
+          _uploading = false;
+        });
+      }
+      return;
+    }
 
     try {
       final fileName = p.basename(_file!.path);

@@ -9,7 +9,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/api/api_client.dart';
+import '../../../core/models/vendor.dart';
 import '../../../core/providers/demo_mode_provider.dart';
+import '../../../core/providers/vendors_list_provider.dart';
+import '../../../core/services/demo_data.dart';
 import '../../../core/theme/app_theme.dart';
 
 class AddVendorScreen extends ConsumerStatefulWidget {
@@ -60,12 +63,60 @@ class _AddVendorScreenState extends ConsumerState<AddVendorScreen> {
 
     final isDemo = ref.read(isDemoModeProvider);
     if (isDemo) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Demo mode: vendor not saved to backend. Toggle off Demo Mode in Settings to enable.',
-          ),
+      final now = DateTime.now();
+      final newVendor = Vendor(
+        id: 'demo-v${demoVendors.length + 1}',
+        legalName: _legalNameCtrl.text.trim(),
+        tradeName: _tradeNameCtrl.text.trim().isEmpty ? null : _tradeNameCtrl.text.trim(),
+        email: _emailCtrl.text.trim(),
+        phone: _phoneCtrl.text.trim(),
+        pan: _panCtrl.text.trim().isEmpty ? 'AABCP${demoVendors.length + 10}B' : _panCtrl.text.trim(),
+        gstin: _gstinCtrl.text.trim().isEmpty ? '27AABCP${demoVendors.length + 10}1ZK' : _gstinCtrl.text.trim(),
+        cin: _cinCtrl.text.trim().isEmpty ? null : _cinCtrl.text.trim(),
+        udyamNumber: _udyamCtrl.text.trim().isEmpty ? null : _udyamCtrl.text.trim(),
+        msmeCategory: _msmeCategory != null ? MsmeCategoryX.fromString(_msmeCategory!) : MsmeCategory.micro,
+        city: _cityCtrl.text.trim().isEmpty ? 'Mumbai' : _cityCtrl.text.trim(),
+        state: _stateCtrl.text.trim().isEmpty ? 'Maharashtra' : _stateCtrl.text.trim(),
+        categories: const ['Manufacturing'],
+        contactName: _legalNameCtrl.text.trim().split(' ').first,
+        contactRole: 'Procurement Lead',
+        status: VendorStatus.pendingVerification,
+        onboardedAt: now,
+        trustScore: const TrustScore(
+          overallScore: 68,
+          verificationCompleteness: 25,
+          certificationFreshness: 25,
+          accountAgeActivity: 10,
+          manualBuyerFlag: 8,
+          riskLevel: RiskLevel.medium,
         ),
+        trustHistory: [
+          TrustHistoryPoint(score: 68, recordedAt: now),
+        ],
+        verifications: [
+          if (_gstinCtrl.text.trim().isNotEmpty)
+            VerificationRecord(
+              id: 'vr-${demoVendors.length + 1}-gst',
+              type: VerificationType.gstin,
+              status: VerificationStatus.success,
+              createdAt: now,
+            ),
+        ],
+        documents: const [],
+        events: [
+          VendorEvent(
+            id: 'ev-new-${now.millisecondsSinceEpoch}',
+            kind: VendorEventKind.verification,
+            title: 'Vendor Onboarded',
+            detail: 'Initial profile registered in network.',
+            at: now,
+          ),
+        ],
+      );
+      demoVendors.insert(0, newVendor);
+      ref.invalidate(vendorsListProvider);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Vendor added to network (Demo Mode)')),
       );
       context.pop();
       return;
@@ -97,6 +148,7 @@ class _AddVendorScreenState extends ConsumerState<AddVendorScreen> {
       };
 
       await ApiClient.instance.createVendor(body);
+      ref.invalidate(vendorsListProvider);
 
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(

@@ -125,6 +125,10 @@ class DashboardScreen extends ConsumerWidget {
     final totalTrust = vendors.fold<int>(0, (sum, v) => sum + (v.trustScore?.overallScore ?? 0));
     final avgTrust = vendors.isEmpty ? 0.0 : totalTrust / vendors.length;
     final openRfqs = rfqs.where((r) => r.status == RfqStatus.open).length;
+    final complianceRiskCount = vendors
+        .expand((v) => v.documents)
+        .where((d) => d.isExpired || d.isExpiringSoon)
+        .length;
 
     return GridView.count(
       crossAxisCount: 2,
@@ -152,7 +156,7 @@ class DashboardScreen extends ConsumerWidget {
         ),
         _KpiCard(
           title: 'Compliance Risk',
-          value: '0', // Hardcoded simplification
+          value: complianceRiskCount.toString(),
           subtitle: 'certifications need attention',
           icon: Icons.warning_amber_rounded,
           color: Colors.orange,
