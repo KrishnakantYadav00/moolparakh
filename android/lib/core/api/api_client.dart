@@ -9,6 +9,8 @@
 // falling back to localhost:5000 for dev.
 //
 // PRD §14.3 — critical API endpoints this client calls:
+//   POST /api/auth/login              → login (returns JWT)
+//   GET  /api/auth/me                 → getMe
 //   POST /api/documents/presign       → presignUpload
 //   GET  /api/documents/{vendorId}    → listDocuments
 //   GET  /api/vendors/{id}            → getVendor   (also returns trust score)
@@ -16,9 +18,12 @@
 //   GET  /api/rfqs                    → listRfqs
 //   GET  /api/rfqs/{id}               → getRfq
 //   POST /api/rfqs/{id}/bids          → submitBid
+//   POST /api/rfqs/parse-spec         → parseRfqSpec (Gemini NLP)
 //   GET  /api/notifications           → listNotifications
 //   PATCH /api/notifications/{id}/read
 //   PATCH /api/notifications/read-all
+//   GET  /api/intelligence/heatmap    → getHeatmapData
+//   POST /api/intelligence/sync-gdelt → triggerGdeltSync
 
 import 'dart:io';
 import 'package:dio/dio.dart';
@@ -53,9 +58,11 @@ class ApiClient {
   static const _defaultBase =
       'http://192.168.1.2:5000/api'; // Physical device → PC Wi-Fi IP
   static const _prefsKey = 'api_base_url';
+  static const _tokenKey = 'auth_jwt_token';
 
   late final Dio _dio;
   late String _base;
+  String? _token;
 
   ApiClient._();
   static final ApiClient instance = ApiClient._();
@@ -63,6 +70,7 @@ class ApiClient {
   Future<void> init() async {
     final prefs = await SharedPreferences.getInstance();
     _base = prefs.getString(_prefsKey) ?? _defaultBase;
+    _token = prefs.getString(_tokenKey);
 
     _dio = Dio(
       BaseOptions(
@@ -73,6 +81,19 @@ class ApiClient {
         headers: {
           'Content-Type': 'application/json',
           'Accept': 'application/json',
+          if (_token != null) 'Authorization': 'Bearer $_token',
+        },
+      ),
+    );
+
+    // Auth token interceptor — attaches Bearer token to every request
+    _dio.interceptors.add(
+      InterceptorsWrapper(
+        onRequest: (options, handler) async {
+          if (_token != null) {
+            options.headers['Authorization'] = 'Bearer $_token';
+          }
+          handler.next(options);
         },
       ),
     );
@@ -188,6 +209,40 @@ class ApiClient {
   }
 
   String get currentBaseUrl => _base;
+
+  bool get isLoggedIn => _token != null;
+
+  // ─── Auth ─────────────────────────────────────────────────────────────────
+
+  /// Login and store JWT. Returns the token string.
+  Future<String> login(String email, String password) async {
+    // Auth is public — no token needed for this call
+    final res = await _dio.post(
+      '/auth/login',
+      data: {'email': email, 'password': password},
+      options: Options(
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+      ),
+    );
+    final token = res.data['token'] as String;
+    _token = token;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_tokenKey, token);
+    return token;
+  }
+
+  Future<void> logout() async {
+    _token = null;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_tokenKey);
+  }
+
+  Future<Map<String, dynamic>> getMe() async {
+    return await _get('/auth/me') as Map<String, dynamic>;
+  }
 
   // ─── Vendors ──────────────────────────────────────────────────────────────
 
@@ -324,6 +379,19 @@ class ApiClient {
         as Map<String, dynamic>;
   }
 
+  /// POST /api/rfqs/parse-spec — Gemini NLP spec parser
+  /// Pass free text like "Need 500 M8 bolts IS 2062 delivered to Pune in 10 days"
+  Future<Map<String, dynamic>> parseRfqSpec(String freeText) async {
+    return await _post('/rfqs/parse-spec', {'text': freeText})
+        as Map<String, dynamic>;
+  }
+
+  /// Award an RFQ to a specific vendor bid
+  Future<Map<String, dynamic>> awardRfq(String rfqId, String vendorId) async {
+    final res = await _dio.patch('/rfqs/$rfqId/award', data: {'vendorId': vendorId});
+    return res.data as Map<String, dynamic>;
+  }
+
   // ─── Intelligence ─────────────────────────────────────────────────────────
 
   Future<List<Map<String, dynamic>>> listIntelligenceEvents() async {
@@ -363,6 +431,16 @@ class ApiClient {
   ) async {
     final res = await _get('/intelligence/events/$vendorId');
     return (res as List).cast<Map<String, dynamic>>();
+  }
+
+  /// GET /api/intelligence/heatmap — state-level disruption heat map data
+  Future<Map<String, dynamic>> getHeatmapData() async {
+    return await _get('/intelligence/heatmap') as Map<String, dynamic>;
+  }
+
+  /// POST /api/intelligence/sync-gdelt — manually trigger GDELT news pipeline
+  Future<Map<String, dynamic>> triggerGdeltSync() async {
+    return await _post('/intelligence/sync-gdelt', {}) as Map<String, dynamic>;
   }
 
   // ─── Health ───────────────────────────────────────────────────────────────
