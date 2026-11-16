@@ -1,0 +1,67 @@
+# Node
+node_modules/
+npm-debug.log*
+
+# Build outputs
+dist/
+build/
+*.tsbuildinfo
+
+# Environment secrets — never commit these
+.env
+.env.local
+.env.*.local
+*.pem
+*.key
+
+# Flutter / Dart
+android/.dart_tool/
+android/.packages
+android/build/
+android/.flutter-plugins
+android/.flutter-plugins-dependencies
+android/.pub-cache/
+**/.dart_tool/
+
+# Android build artefacts
+android/android/.gradle/
+android/android/app/build/
+android/android/local.properties
+*.apk
+*.aab
+*.ipa
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Windows
+Thumbs.db
+desktop.ini
+
+# IDE
+.vscode/
+!.vscode/extensions.json
+!.vscode/settings.json
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Logs
+logs/
+*.log
+
+# Coverage
+coverage/
+*.lcov
+
+# Misc
+.cache/
+.turbo/
+tmp/
+temp/
+uploads/
